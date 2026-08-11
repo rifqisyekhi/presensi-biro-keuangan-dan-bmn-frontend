@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+/* Tambahkan pengaturan font global di sini */
+body {
+  font-family: 'Poppins', sans-serif;
+}
