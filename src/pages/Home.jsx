@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import BottomNav from "../components/BottomNav";
 
-const API_URL = "http://localhost:5000";
+import { API_URL } from "../config";
 
 // =========================================================
 // HELPER

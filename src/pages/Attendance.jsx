@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { urlFoto } from "../config";
+import { API_URL, urlFoto } from "../config";
 
 // =========================================================
 // PETA UNTUK WATERMARK
@@ -333,7 +333,7 @@ function Attendance({
         const tanggal = getTodayKey();
 
         const response = await fetch(
-          `http://localhost:5000/api/absensi/today/${no_wa}` +
+          `${API_URL}/api/absensi/today/${no_wa}` +
             `?tanggal=${tanggal}`
         );
 
@@ -1284,7 +1284,7 @@ function Attendance({
         );
 
         const response = await fetch(
-          "http://localhost:5000/api/absensi/clock-in",
+          `${API_URL}/api/absensi/clock-in`,
           {
             method: "POST",
 

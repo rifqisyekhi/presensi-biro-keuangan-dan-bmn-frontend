@@ -1,5 +1,6 @@
 import { useState } from "react";
 import officePhoto from "../assets/photo.png";
+import { API_URL } from "../config";
 
 function Login({ keStart, keHome, kePilihKehadiran }) {
   const [showPassword, setShowPassword] = useState(false);
@@ -19,7 +20,7 @@ function Login({ keStart, keHome, kePilihKehadiran }) {
 
     try {
       // 1. Tembak API Login di Node.js
-      const response = await fetch("http://localhost:5000/api/login", {
+      const response = await fetch(`${API_URL}/api/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username: phone, password: password }),

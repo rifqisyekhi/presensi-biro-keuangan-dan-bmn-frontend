@@ -1,4 +1,7 @@
-export const API_URL = "http://localhost:5000";
+// Kosong berarti sama-origin: permintaan pergi ke /api/... pada
+// host yang sama. Di produksi Nginx meneruskannya ke backend,
+// saat pengembangan proxy Vite yang meneruskannya.
+export const API_URL = "";
 
 // =========================================================
 // URL FOTO ABSENSI

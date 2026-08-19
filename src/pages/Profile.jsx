@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import BottomNav from "../components/BottomNav.jsx";
+import { API_URL } from "../config";
 
 function Profile({ keHome, keRiwayat, keProfile, keLogout }) {
   const [user, setUser] = useState(null);
@@ -17,7 +18,7 @@ function Profile({ keHome, keRiwayat, keProfile, keLogout }) {
         }
 
         const response = await fetch(
-          `http://localhost:5000/api/pegawai/${encodeURIComponent(nipUser)}`
+          `${API_URL}/api/pegawai/${encodeURIComponent(nipUser)}`
         );
 
         if (!response.ok) {

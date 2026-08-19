@@ -7,6 +7,7 @@ import Attendance from "./pages/Attendance";
 import DailyPerformance from "./pages/DailyPerformance";
 import Riwayat from "./pages/History";
 import Profile from "./pages/Profile";
+import { API_URL } from "./config";
 
 // =========================================================
 // SESI
@@ -169,7 +170,7 @@ function App() {
       // =====================================================
 
       const response = await fetch(
-        "http://localhost:5000/api/absensi/clock-out",
+        `${API_URL}/api/absensi/clock-out`,
         {
           method: "PUT",
 
