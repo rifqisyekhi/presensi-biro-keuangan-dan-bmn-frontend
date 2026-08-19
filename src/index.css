@@ -1,6 +1,26 @@
 @import "tailwindcss";
 
-/* Tambahkan pengaturan font global di sini */
+/* =========================================================
+   PALET WARNA
+   =========================================================
+   Empat warna ini dipakai di seluruh aplikasi. Mengubah
+   nilainya di sini akan mengubah seluruh tampilan, jadi
+   jangan menulis kode hex langsung di komponen.
+
+   navy   #13416B  teks, judul, aksen gelap
+   brand  #3F72AF  warna utama, tombol, elemen aktif
+   mist   #DBE2EF  garis, latar lembut, elemen nonaktif
+   paper  #F9F7F7  latar halaman
+   ========================================================= */
+
+@theme {
+  --color-navy: #13416B;
+  --color-brand: #3F72AF;
+  --color-mist: #DBE2EF;
+  --color-paper: #F9F7F7;
+}
+
+/* Pengaturan font global */
 body {
-  font-family: 'Poppins', sans-serif;
+  font-family: "Poppins", sans-serif;
 }

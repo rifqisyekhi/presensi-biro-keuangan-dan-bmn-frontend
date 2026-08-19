@@ -35,12 +35,10 @@ function Login({ keStart, keHome, kePilihKehadiran }) {
       // 3. Jika Sukses: Simpan data sesi login ke memori browser
       localStorage.setItem("userPhone", data.user.no_wa || phone);
 
-      if (data.user?.nip) {
-        localStorage.setItem("userNip", data.user.nip);
-      } else if (data.user?.nip_pegawai) {
-        localStorage.setItem("userNip", data.user.nip_pegawai);
-      } else if (data.user?.nip_pegawai || data.user?.nik) {
-        localStorage.setItem("userNip", data.user.nip_pegawai || data.user.nik);
+      const nip = data.user?.nip || data.user?.nip_pegawai || data.user?.nik;
+
+      if (nip) {
+        localStorage.setItem("userNip", nip);
       }
 
       // 4. Pindah ke halaman Home
@@ -54,19 +52,19 @@ function Login({ keStart, keHome, kePilihKehadiran }) {
   };
 
   return (
-    <div className="h-screen w-full max-w-[400px] mx-auto bg-[#5B84F5] relative overflow-hidden flex flex-col shadow-lg font-sans">
-      <div className="absolute top-0 -left-[25%] w-[150%] h-[35%] bg-gray-300 rounded-b-[50%] overflow-hidden z-0">
+    <div className="h-screen w-full max-w-[400px] mx-auto bg-brand relative overflow-hidden flex flex-col shadow-lg font-sans">
+      <div className="absolute top-0 -left-[25%] w-[150%] h-[35%] bg-mist rounded-b-[50%] overflow-hidden z-0">
         <img
           src={officePhoto}
           alt="Office Background"
-          className="w-full h-full object-cover opacity-60 mix-blend-multiply bg-[#436BD6]"
+          className="w-full h-full object-cover opacity-60 mix-blend-multiply bg-navy"
         />
       </div>
 
       {/* Tombol Back menuju Start */}
       <button
         onClick={keStart}
-        className="absolute top-10 left-6 z-10 bg-[#5B84F5] text-white p-2 rounded-full shadow-md transition-transform active:scale-90"
+        className="absolute top-10 left-6 z-10 bg-brand text-white p-2 rounded-full shadow-md transition-transform active:scale-90"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -84,7 +82,7 @@ function Login({ keStart, keHome, kePilihKehadiran }) {
 
       <div className="relative z-10 mt-[35%] flex flex-col items-center text-white px-6">
         <h1 className="text-3xl font-bold mb-1">Welcome Back</h1>
-        <p className="text-sm text-blue-100">Login to your account</p>
+        <p className="text-sm text-mist">Login to your account</p>
       </div>
 
       {/* FORM LOGIN */}
@@ -100,7 +98,7 @@ function Login({ keStart, keHome, kePilihKehadiran }) {
         )}
 
         <div className="mb-4">
-          <label className="block text-gray-700 text-sm font-semibold mb-2">
+          <label className="block text-navy text-sm font-semibold mb-2">
             No Telp (62)
           </label>
           <input
@@ -109,12 +107,12 @@ function Login({ keStart, keHome, kePilihKehadiran }) {
             onChange={(e) => setPhone(e.target.value)}
             required
             placeholder="Contoh: 08123456789 atau 62812..."
-            className="w-full bg-[#F3F4F6] p-4 rounded-xl outline-none focus:ring-2 focus:ring-[#5B84F5] transition-all"
+            className="w-full bg-mist p-4 rounded-xl outline-none focus:ring-2 focus:ring-brand transition-all"
           />
         </div>
 
         <div className="mb-4 relative">
-          <label className="block text-gray-700 text-sm font-semibold mb-2">
+          <label className="block text-navy text-sm font-semibold mb-2">
             Password
           </label>
           <input
@@ -123,12 +121,12 @@ function Login({ keStart, keHome, kePilihKehadiran }) {
             onChange={(e) => setPassword(e.target.value)}
             required
             placeholder="Masukkan nomor telepon yang sama"
-            className="w-full bg-[#F3F4F6] p-4 rounded-xl outline-none focus:ring-2 focus:ring-[#5B84F5] transition-all"
+            className="w-full bg-mist p-4 rounded-xl outline-none focus:ring-2 focus:ring-brand transition-all"
           />
           <button
             type="button"
             onClick={() => setShowPassword((value) => !value)}
-            className="absolute right-4 top-11 text-gray-500"
+            className="absolute right-4 top-11 text-navy/70"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -154,10 +152,10 @@ function Login({ keStart, keHome, kePilihKehadiran }) {
         </div>
 
         <div className="flex justify-between items-center mb-8 mt-2">
-          <label className="flex items-center text-sm text-gray-500 cursor-pointer">
+          <label className="flex items-center text-sm text-navy/70 cursor-pointer">
             <input
               type="checkbox"
-              className="mr-2 w-4 h-4 rounded border-gray-300 text-[#5B84F5] focus:ring-[#5B84F5]"
+              className="mr-2 w-4 h-4 rounded border-mist text-brand focus:ring-brand"
             />
             Remember me
           </label>
@@ -167,7 +165,7 @@ function Login({ keStart, keHome, kePilihKehadiran }) {
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full bg-[#5B84F5] text-white py-4 rounded-xl font-bold text-lg mb-6 shadow-md transition-transform active:scale-95 disabled:opacity-50"
+          className="w-full bg-brand text-white py-4 rounded-xl font-bold text-lg mb-6 shadow-md transition-transform active:scale-95 disabled:opacity-50"
         >
           {isLoading ? "Memproses..." : "Login"}
         </button>

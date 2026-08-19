@@ -1,8 +1,8 @@
 function Start({ keLogin }) {
   return (
-    <div className="h-screen w-full max-w-[400px] mx-auto bg-[#5B84F5] relative overflow-hidden flex flex-col shadow-lg font-sans">
+    <div className="h-screen w-full max-w-[400px] mx-auto bg-brand relative overflow-hidden flex flex-col shadow-lg font-sans">
       
-      <div className="absolute -top-[20%] -left-[50%] w-[200%] h-[90%] bg-[#436BD6] rounded-[50%] z-0"></div>
+      <div className="absolute -top-[20%] -left-[50%] w-[200%] h-[90%] bg-navy rounded-[50%] z-0"></div>
       
       <div className="relative z-10 flex flex-col h-full px-6 py-10">
         
@@ -16,7 +16,7 @@ function Start({ keLogin }) {
         <div className="mt-auto mb-5 flex flex-col gap-4">
           <button 
             onClick={keLogin}
-            className="w-full py-4 rounded-lg text-base font-semibold transition-opacity active:opacity-80 bg-white text-[#436BD6]"
+            className="w-full py-4 rounded-lg text-base font-semibold transition-opacity active:opacity-80 bg-white text-navy"
           >
             Login
           </button>

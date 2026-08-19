@@ -8,10 +8,67 @@ import DailyPerformance from "./pages/DailyPerformance";
 import Riwayat from "./pages/History";
 import Profile from "./pages/Profile";
 
+// =========================================================
+// SESI
+// =========================================================
+
+// localStorage bisa melempar error di mode privat sebagian
+// browser, jadi setiap aksesnya dibungkus.
+
+function bacaSesi(kunci) {
+  try {
+    return localStorage.getItem(kunci);
+  } catch (error) {
+    console.error("Gagal membaca localStorage:", error);
+    return null;
+  }
+}
+
+function hapusSesi() {
+  try {
+    localStorage.removeItem("userPhone");
+    localStorage.removeItem("userNip");
+    localStorage.removeItem("userData");
+
+    // Draf absensi harian ikut dihapus. Kalau tidak, absensi
+    // pegawai sebelumnya akan terbaca oleh pegawai berikutnya
+    // yang login di perangkat yang sama.
+    Object.keys(localStorage)
+      .filter((kunci) => kunci.startsWith("attendance_"))
+      .forEach((kunci) => localStorage.removeItem(kunci));
+  } catch (error) {
+    console.error("Gagal menghapus localStorage:", error);
+  }
+}
+
 function App() {
-  const [halamanAktif, setHalamanAktif] = useState("start");
+  // Kalau sesinya masih ada, langsung ke Home. Tanpa ini
+  // pegawai dilempar ke halaman Login setiap kali halaman
+  // dimuat ulang, walaupun datanya masih tersimpan.
+  const [halamanAktif, setHalamanAktif] = useState(() =>
+    bacaSesi("userPhone") ? "home" : "start",
+  );
+
   const [jenisKehadiran, setJenisKehadiran] = useState(null);
   const [attendanceData, setAttendanceData] = useState(null);
+
+  // =========================================================
+  // LOGOUT
+  // =========================================================
+
+  const handleLogout = () => {
+    const yakin = window.confirm(
+      "Keluar dari akun ini? Absensi yang belum dikirim akan hilang.",
+    );
+
+    if (!yakin) return;
+
+    hapusSesi();
+
+    setJenisKehadiran(null);
+    setAttendanceData(null);
+    setHalamanAktif("start");
+  };
 
   // =========================================================
   // FINAL SUBMIT
@@ -57,6 +114,11 @@ function App() {
       const finalData = {
         no_wa: String(userPhone),
 
+        // Tanggal Clock In-nya, bukan tanggal saat submit.
+        // Kalau Clock Out dilakukan lewat tengah malam,
+        // absensinya tetap masuk ke hari yang benar.
+        tanggal: attendanceData.date || null,
+
         attendanceType: attendanceData.attendanceType || null,
 
         clockIn: attendanceData.clockIn || null,
@@ -89,7 +151,7 @@ function App() {
       // =====================================================
 
       if (!finalData.clockIn) {
-        alert("Clock In belum dilakukan.");
+        alert("Anda belum absen masuk.");
         return;
       }
 
@@ -98,7 +160,7 @@ function App() {
       // =====================================================
 
       if (!finalData.clockOut) {
-        alert("Clock Out belum dilakukan.");
+        alert("Anda belum absen keluar.");
         return;
       }
 
@@ -129,7 +191,7 @@ function App() {
 
       if (!response.ok) {
         throw new Error(
-          result.message || "Gagal menyimpan Clock Out dan kinerja.",
+          result.message || "Gagal menyimpan absen keluar dan kinerja.",
         );
       }
 
@@ -170,7 +232,7 @@ function App() {
       console.log("✅ KINERJA TERSIMPAN");
       console.log("=================================");
 
-      alert("Absensi selesai. Clock Out dan kinerja harian berhasil disimpan.");
+      alert("Absensi selesai. Absen keluar dan kinerja harian berhasil disimpan.");
 
       setHalamanAktif("home");
     } catch (error) {
@@ -219,6 +281,7 @@ function App() {
           }}
           keRiwayat={() => setHalamanAktif("riwayat")}
           keProfile={() => setHalamanAktif("profile")}
+          keLogout={handleLogout}
         />
       )}
 
@@ -243,6 +306,7 @@ function App() {
           keHome={() => setHalamanAktif("home")}
           keRiwayat={() => setHalamanAktif("riwayat")}
           keProfile={() => setHalamanAktif("profile")}
+          keLogout={handleLogout}
         />
       )}
 

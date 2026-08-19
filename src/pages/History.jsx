@@ -1,5 +1,39 @@
 import { useEffect, useState } from "react";
 import BottomNav from "../components/BottomNav";
+import { API_URL, urlFoto } from "../config";
+
+const NAMA_BULAN = [
+  "Januari",
+  "Februari",
+  "Maret",
+  "April",
+  "Mei",
+  "Juni",
+  "Juli",
+  "Agustus",
+  "September",
+  "Oktober",
+  "November",
+  "Desember",
+];
+
+const PILIHAN_JENIS = [
+  { nilai: "SEMUA", label: "Semua" },
+  { nilai: "WFO", label: "Di Kantor" },
+  { nilai: "WFH", label: "Dari Rumah" },
+  { nilai: "DINAS", label: "Dinas Luar" },
+];
+
+// Bulan berjalan menurut perangkat pegawai.
+function bulanSekarang() {
+  const now = new Date();
+
+  return (
+    now.getFullYear() +
+    "-" +
+    String(now.getMonth() + 1).padStart(2, "0")
+  );
+}
 
 function History({ keHome, keRiwayat, keProfile }) {
   const [riwayatData, setRiwayatData] = useState([]);
@@ -8,9 +42,13 @@ function History({ keHome, keRiwayat, keProfile }) {
 
   const [selectedItem, setSelectedItem] = useState(null);
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
+  const [showFilter, setShowFilter] = useState(false);
+  const [filterJenis, setFilterJenis] = useState("SEMUA");
+
+  // Riwayat diambil per bulan dari server, bukan seluruhnya,
+  // supaya daftarnya tidak pernah tumbuh tanpa batas.
+  const [filterBulan, setFilterBulan] = useState(bulanSekarang);
+  const [bulanTersedia, setBulanTersedia] = useState([]);
 
   const normalizePhoneNumber = (value) => {
     if (!value) return "";
@@ -32,57 +70,97 @@ function History({ keHome, keRiwayat, keProfile }) {
     return digits;
   };
 
-  const fetchHistory = async () => {
-    try {
-      setLoading(true);
-      setError("");
 
-      // Ambil nomor WA dari localStorage
-      const userPhone = localStorage.getItem("userPhone");
+  // Pengambilan data didefinisikan di dalam effect supaya
+  // tidak ada dependency yang berubah tiap render, dan supaya
+  // respons yang datang terlambat bisa diabaikan — pegawai
+  // bisa berganti bulan lebih cepat daripada jaringannya.
+  useEffect(() => {
+    let dibatalkan = false;
 
-      console.log("=================================");
-      console.log("📋 HISTORY ABSENSI");
-      console.log("userPhone:", userPhone);
-      console.log("=================================");
+    const ambilRiwayat = async () => {
+      try {
+        setLoading(true);
+        setError("");
 
-      const no_wa = normalizePhoneNumber(userPhone);
+        const userPhone = localStorage.getItem("userPhone");
 
-      if (!no_wa) {
-        console.log("❌ Nomor WA tidak ditemukan");
-        setError("Nomor WhatsApp tidak ditemukan.");
-        return;
+        console.log("=================================");
+        console.log("📋 HISTORY ABSENSI");
+        console.log("userPhone:", userPhone);
+        console.log("bulan:", filterBulan);
+        console.log("=================================");
+
+        const no_wa = normalizePhoneNumber(userPhone);
+
+        if (!no_wa) {
+          console.log("❌ Nomor WA tidak ditemukan");
+          setError("Nomor WhatsApp tidak ditemukan.");
+          return;
+        }
+
+        const url =
+          `${API_URL}/api/absensi/history/${no_wa}` +
+          `?bulan=${encodeURIComponent(filterBulan || "")}`;
+
+        console.log("📡 GET HISTORY:", url);
+
+        const response = await fetch(url);
+
+        console.log(
+          "📥 Response:",
+          response.status,
+          response.statusText
+        );
+
+        if (!response.ok) {
+          throw new Error("Gagal mengambil riwayat absensi.");
+        }
+
+        const result = await response.json();
+
+        if (dibatalkan) return;
+
+        console.log("📦 Jumlah:", result.data?.length);
+        console.log("📅 Bulan tersedia:", result.bulanTersedia);
+
+        const daftar = Array.isArray(result.bulanTersedia)
+          ? result.bulanTersedia
+          : [];
+
+        setBulanTersedia(daftar);
+        setRiwayatData(result.data || []);
+
+        // Bulan ini kosong padahal ada riwayat di bulan lain:
+        // langsung tampilkan bulan terbaru yang berisi, supaya
+        // pegawai tidak melihat layar kosong tanpa sebab.
+        const kosong = !result.data || result.data.length === 0;
+
+        if (
+          kosong &&
+          daftar.length > 0 &&
+          daftar[0] !== filterBulan
+        ) {
+          setFilterBulan(daftar[0]);
+        }
+      } catch (err) {
+        if (dibatalkan) return;
+
+        console.error("❌ Error history:", err);
+        setError(err.message);
+      } finally {
+        if (!dibatalkan) {
+          setLoading(false);
+        }
       }
+    };
 
-      const url = `http://localhost:5000/api/absensi/history/${no_wa}`;
+    ambilRiwayat();
 
-      console.log("📡 GET HISTORY:", url);
-
-      const response = await fetch(url);
-
-      console.log(
-        "📥 Response:",
-        response.status,
-        response.statusText
-      );
-
-      if (!response.ok) {
-        throw new Error("Gagal mengambil riwayat absensi.");
-      }
-
-      const result = await response.json();
-
-      console.log("📦 DATA HISTORY:", JSON.stringify(result, null, 2));
-      console.log("result.data:", result.data);
-      console.log("Array?", Array.isArray(result.data));
-
-      setRiwayatData(result.data || []);
-    } catch (err) {
-      console.error("❌ Error history:", err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  };
+    return () => {
+      dibatalkan = true;
+    };
+  }, [filterBulan]);
 
   const formatTanggal = (tanggal) => {
     if (!tanggal) {
@@ -92,7 +170,7 @@ function History({ keHome, keRiwayat, keProfile }) {
       };
     }
 
-    const [year, month, day] = tanggal.split("-");
+    const [, month, day] = tanggal.split("-");
 
     const monthNames = [
       "Jan",
@@ -115,6 +193,13 @@ function History({ keHome, keRiwayat, keProfile }) {
     };
   };
 
+  // Helper untuk format tanggal DD/MM/YYYY di Detail Modal
+  const formatDDMMYYYY = (tanggal) => {
+    if (!tanggal) return "-";
+    const [year, month, day] = tanggal.split("-");
+    return `${day}/${month}/${year}`;
+  };
+
   const getAttendanceName = (type) => {
     switch (type) {
       case "WFO":
@@ -135,20 +220,20 @@ function History({ keHome, keRiwayat, keProfile }) {
     if (item.clockOut) {
       return {
         text: "Selesai",
-        color: "text-[#6CC220]",
+        color: "text-navy",
       };
     }
 
     if (item.clockIn) {
       return {
         text: "Sedang Bekerja",
-        color: "text-[#F0592A]",
+        color: "text-brand",
       };
     }
 
     return {
       text: "Belum Absen",
-      color: "text-gray-400",
+      color: "text-navy/60",
     };
   };
 
@@ -178,10 +263,45 @@ function History({ keHome, keRiwayat, keProfile }) {
     return `${hours} jam ${minutes} menit`;
   };
 
+  // =========================================================
+  // FILTER
+  // =========================================================
+  const formatBulan = (nilai) => {
+    if (!nilai) return "-";
+
+    const [year, month] = nilai.split("-");
+
+    return `${NAMA_BULAN[parseInt(month, 10) - 1] || nilai} ${year}`;
+  };
+
+  // Bulan yang bisa dipilih: yang punya data menurut server,
+  // ditambah bulan ini supaya pegawai selalu bisa kembali ke
+  // bulan berjalan walaupun belum ada absensi di dalamnya.
+  const daftarBulan = [
+    ...new Set([bulanSekarang(), ...bulanTersedia]),
+  ]
+    .sort()
+    .reverse();
+
+  // Data sudah dibatasi per bulan oleh server, jadi di sini
+  // hanya jenis kehadiran yang difilter.
+  const dataTampil = riwayatData.filter(
+    (item) =>
+      filterJenis === "SEMUA" ||
+      item.attendanceType === filterJenis
+  );
+
+  const filterAktif = filterJenis !== "SEMUA";
+
+  const resetFilter = () => {
+    setFilterJenis("SEMUA");
+    setFilterBulan(bulanSekarang());
+  };
+
   if (loading) {
     return (
-      <div className="h-screen w-full max-w-[400px] mx-auto bg-[#F9FAFB] flex items-center justify-center">
-        <p className="text-gray-400 text-sm">
+      <div className="h-screen w-full max-w-[400px] mx-auto bg-paper flex items-center justify-center">
+        <p className="text-navy/60 text-sm">
           Memuat riwayat absensi...
         </p>
       </div>
@@ -189,15 +309,27 @@ function History({ keHome, keRiwayat, keProfile }) {
   }
 
   return (
-    <div className="h-screen w-full max-w-[400px] mx-auto bg-[#F9FAFB] relative overflow-hidden flex flex-col font-sans text-gray-800 shadow-xl">
-
+    <div className="h-screen w-full max-w-[400px] mx-auto bg-paper relative overflow-hidden flex flex-col font-sans text-navy shadow-xl">
       {/* HEADER */}
-      <div className="flex justify-between items-center px-6 pt-10 pb-4 bg-white z-10 border-b border-gray-50">
-        <h1 className="text-2xl font-bold text-gray-700">
-          Riwayat
-        </h1>
+      <div className="flex justify-between items-center px-6 pt-10 pb-4 bg-white z-10 border-b border-mist">
+        <div>
+          <h1 className="text-2xl font-bold text-navy">Riwayat</h1>
 
-        <button className="flex items-center gap-1.5 border border-gray-200 rounded-lg px-3 py-1.5 text-sm font-medium text-[#00AEEF]">
+          {/* Daftar dibatasi per bulan, jadi bulan yang sedang
+              ditampilkan harus selalu terlihat. */}
+          <p className="text-xs text-navy/60 mt-0.5">
+            {formatBulan(filterBulan)}
+          </p>
+        </div>
+
+        <button
+          onClick={() => setShowFilter(true)}
+          className={`flex items-center gap-1.5 border rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+            filterAktif
+              ? "border-brand bg-brand text-white"
+              : "border-mist text-brand"
+          }`}
+        >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             className="h-4 w-4"
@@ -212,33 +344,39 @@ function History({ keHome, keRiwayat, keProfile }) {
               d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
             />
           </svg>
-
           Filter
         </button>
       </div>
 
       {/* CONTENT */}
       <div className="flex-1 overflow-y-auto px-5 pt-4 pb-24">
-
         {error && (
           <div className="text-center mt-10 px-5">
-            <p className="text-red-400 text-sm">
-              {error}
-            </p>
+            <p className="text-red-400 text-sm">{error}</p>
           </div>
         )}
 
-        {!error && riwayatData.length === 0 && (
+        {!error && dataTampil.length === 0 && (
           <div className="text-center mt-20">
-            <p className="text-gray-400 text-sm">
-              Belum ada riwayat absensi.
+            <p className="text-navy/60 text-sm">
+              {filterAktif
+                ? "Tidak ada absensi yang cocok dengan filter."
+                : "Belum ada riwayat absensi."}
             </p>
+
+            {filterAktif && (
+              <button
+                onClick={resetFilter}
+                className="mt-3 text-sm font-bold text-brand"
+              >
+                Hapus Filter
+              </button>
+            )}
           </div>
         )}
 
         <div className="flex flex-col gap-3">
-
-          {riwayatData.map((item) => {
+          {dataTampil.map((item) => {
             const tanggal = formatTanggal(item.tanggal);
             const status = getStatus(item);
 
@@ -246,11 +384,10 @@ function History({ keHome, keRiwayat, keProfile }) {
               <button
                 key={item._id}
                 onClick={() => setSelectedItem(item)}
-                className="w-full text-left bg-white p-4 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-gray-100 flex gap-4 transition-transform active:scale-[0.98]"
+                className="w-full text-left bg-white p-4 rounded-2xl shadow-[0_2px_10px_rgba(0,0,0,0.03)] border border-mist flex gap-4 transition-transform active:scale-[0.98]"
               >
-
                 {/* TANGGAL */}
-                <div className="bg-[#F5B026] w-[60px] h-[64px] rounded-xl flex flex-col items-center justify-center text-white flex-shrink-0">
+                <div className="bg-brand w-[60px] h-[64px] rounded-xl flex flex-col items-center justify-center text-white flex-shrink-0">
                   <span className="text-xs font-medium opacity-90">
                     {tanggal.month}
                   </span>
@@ -262,8 +399,7 @@ function History({ keHome, keRiwayat, keProfile }) {
 
                 {/* DETAIL */}
                 <div className="flex-1 flex flex-col justify-center relative">
-
-                  <div className="absolute right-0 top-0 text-[#00AEEF]">
+                  <div className="absolute right-0 top-0 text-brand">
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
                       className="h-5 w-5"
@@ -280,20 +416,18 @@ function History({ keHome, keRiwayat, keProfile }) {
                     </svg>
                   </div>
 
-                  <h3 className="font-bold text-gray-700 text-base mb-1.5 pr-6">
+                  <h3 className="font-bold text-navy text-base mb-1.5 pr-6">
                     {getAttendanceName(item.attendanceType)}
                   </h3>
 
                   <div className="flex items-center text-xs mb-1">
-                    <span className="text-gray-500 w-[70px]">
+                    <span className="text-navy/70 w-[70px]">
                       Jam Kerja
                     </span>
 
-                    <span className="text-gray-500 mr-1">
-                      :
-                    </span>
+                    <span className="text-navy/70 mr-1">:</span>
 
-                    <span className="font-medium text-gray-700">
+                    <span className="font-medium text-navy">
                       {calculateWorkingTime(
                         item.clockIn,
                         item.clockOut
@@ -302,108 +436,159 @@ function History({ keHome, keRiwayat, keProfile }) {
                   </div>
 
                   <div className="flex items-center text-xs">
-                    <span className="text-gray-500 w-[70px]">
-                      Status
-                    </span>
+                    <span className="text-navy/70 w-[70px]">Status</span>
 
-                    <span className="text-gray-500 mr-1">
-                      :
-                    </span>
+                    <span className="text-navy/70 mr-1">:</span>
 
                     <span className={`font-bold ${status.color}`}>
                       {status.text}
                     </span>
                   </div>
-
                 </div>
-
               </button>
             );
           })}
-
         </div>
       </div>
+
+      {/* FILTER MODAL */}
+      {showFilter && (
+        <div className="absolute inset-0 bg-black/40 z-40 flex items-end">
+          <div className="bg-white w-full rounded-t-3xl p-5 max-h-[85%] overflow-y-auto">
+            <div className="flex justify-between items-center mb-5">
+              <h2 className="text-xl font-bold text-navy">
+                Filter Riwayat
+              </h2>
+
+              <button
+                onClick={() => setShowFilter(false)}
+                className="text-navy/60 text-xl"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* JENIS KEHADIRAN */}
+            <p className="text-xs text-navy/60 mb-2">Jenis Kehadiran</p>
+
+            <div className="flex flex-wrap gap-2 mb-6">
+              {PILIHAN_JENIS.map((pilihan) => (
+                <button
+                  key={pilihan.nilai}
+                  onClick={() => setFilterJenis(pilihan.nilai)}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                    filterJenis === pilihan.nilai
+                      ? "bg-brand text-white border-brand"
+                      : "bg-white text-navy border-mist"
+                  }`}
+                >
+                  {pilihan.label}
+                </button>
+              ))}
+            </div>
+
+            {/* BULAN */}
+            <p className="text-xs text-navy/60 mb-2">Bulan</p>
+
+
+            <div className="flex flex-wrap gap-2 mb-6">
+              {daftarBulan.map((bulan) => (
+                <button
+                  key={bulan}
+                  onClick={() => setFilterBulan(bulan)}
+                  className={`px-3 py-2 rounded-xl text-sm font-medium border transition-colors ${
+                    filterBulan === bulan
+                      ? "bg-brand text-white border-brand"
+                      : "bg-white text-navy border-mist"
+                  }`}
+                >
+                  {formatBulan(bulan)}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={resetFilter}
+                className="flex-1 border border-mist text-navy py-3 rounded-xl font-bold"
+              >
+                Reset
+              </button>
+
+              <button
+                onClick={() => setShowFilter(false)}
+                className="flex-1 bg-brand text-white py-3 rounded-xl font-bold"
+              >
+                Terapkan
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* DETAIL MODAL */}
       {selectedItem && (
         <div className="absolute inset-0 bg-black/40 z-30 flex items-end">
-
           <div className="bg-white w-full rounded-t-3xl p-5 max-h-[85%] overflow-y-auto">
-
             <div className="flex justify-between items-center mb-5">
-
-              <h2 className="text-xl font-bold text-gray-700">
+              <h2 className="text-xl font-bold text-navy">
                 Detail Absensi
               </h2>
 
               <button
                 onClick={() => setSelectedItem(null)}
-                className="text-gray-400 text-xl"
+                className="text-navy/60 text-xl"
               >
                 ✕
               </button>
-
             </div>
 
             <div className="space-y-4">
-
               {/* JENIS */}
               <div>
-                <p className="text-xs text-gray-400">
-                  Jenis Kehadiran
-                </p>
+                <p className="text-xs text-navy/60">Jenis Kehadiran</p>
 
-                <p className="font-bold text-gray-700">
-                  {getAttendanceName(
-                    selectedItem.attendanceType
-                  )}
+                <p className="font-bold text-navy">
+                  {getAttendanceName(selectedItem.attendanceType)}
                 </p>
               </div>
 
-              {/* TANGGAL */}
+              {/* TANGGAL - Menggunakan format DD/MM/YYYY */}
               <div>
-                <p className="text-xs text-gray-400">
-                  Tanggal
-                </p>
+                <p className="text-xs text-navy/60">Tanggal</p>
 
-                <p className="font-medium text-gray-700">
-                  {selectedItem.tanggal}
+                <p className="font-medium text-navy">
+                  {formatDDMMYYYY(selectedItem.tanggal)}
                 </p>
               </div>
 
               {/* JAM */}
               <div className="grid grid-cols-2 gap-4">
-
                 <div>
-                  <p className="text-xs text-gray-400">
-                    Jam Masuk
-                  </p>
+                  <p className="text-xs text-navy/60">Jam Masuk</p>
 
-                  <p className="font-bold text-gray-700">
+                  <p className="font-bold text-navy">
                     {selectedItem.clockIn || "-"}
                   </p>
                 </div>
 
                 <div>
-                  <p className="text-xs text-gray-400">
-                    Jam Keluar
-                  </p>
+                  <p className="text-xs text-navy/60">Jam Keluar</p>
 
-                  <p className="font-bold text-gray-700">
+                  <p className="font-bold text-navy">
                     {selectedItem.clockOut || "-"}
                   </p>
                 </div>
-
               </div>
 
-              {/* KINERJA */}
+              {/* KINERJA - Menggunakan text-justify */}
               <div>
-                <p className="text-xs text-gray-400 mb-1">
+                <p className="text-xs text-navy/60 mb-1">
                   Kinerja Harian
                 </p>
 
-                <div className="bg-gray-50 rounded-xl p-3">
-                  <p className="text-sm text-gray-700">
+                <div className="bg-mist rounded-xl p-3">
+                  <p className="text-sm text-navy text-justify">
                     {selectedItem.kinerjaHarian ||
                       selectedItem.kinerja_harian ||
                       "Tidak ada keterangan kinerja harian."}
@@ -413,43 +598,42 @@ function History({ keHome, keRiwayat, keProfile }) {
 
               {/* LOKASI MASUK */}
               <div>
-                <p className="text-xs text-gray-400 mb-1">
-                  Lokasi Clock In
+                <p className="text-xs text-navy/60 mb-1">
+                  Lokasi Absen Masuk
                 </p>
 
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-navy">
                   {selectedItem.clockInAddress || "-"}
                 </p>
               </div>
 
               {/* LOKASI KELUAR */}
               <div>
-                <p className="text-xs text-gray-400 mb-1">
-                  Lokasi Clock Out
+                <p className="text-xs text-navy/60 mb-1">
+                  Lokasi Absen Keluar
                 </p>
 
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-navy">
                   {selectedItem.clockOutAddress || "-"}
                 </p>
               </div>
 
               {/* FOTO */}
               <div>
-                <p className="text-xs text-gray-400 mb-2">
+                <p className="text-xs text-navy/60 mb-2">
                   Foto Absensi
                 </p>
 
                 <div className="grid grid-cols-2 gap-3">
-
                   {selectedItem.clockInPhoto && (
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        Clock In
+                      <p className="text-xs text-navy/70 mb-1">
+                        Jam Masuk
                       </p>
 
                       <img
-                        src={selectedItem.clockInPhoto}
-                        alt="Clock In"
+                        src={urlFoto(selectedItem.clockInPhoto)}
+                        alt="Foto absen masuk"
                         className="w-full h-36 object-cover rounded-xl"
                       />
                     </div>
@@ -457,32 +641,28 @@ function History({ keHome, keRiwayat, keProfile }) {
 
                   {selectedItem.clockOutPhoto && (
                     <div>
-                      <p className="text-xs text-gray-500 mb-1">
-                        Clock Out
+                      <p className="text-xs text-navy/70 mb-1">
+                        Jam Keluar
                       </p>
 
                       <img
-                        src={selectedItem.clockOutPhoto}
-                        alt="Clock Out"
+                        src={urlFoto(selectedItem.clockOutPhoto)}
+                        alt="Foto absen keluar"
                         className="w-full h-36 object-cover rounded-xl"
                       />
                     </div>
                   )}
-
                 </div>
               </div>
-
             </div>
 
             <button
               onClick={() => setSelectedItem(null)}
-              className="w-full mt-6 bg-[#00AEEF] text-white py-3 rounded-xl font-bold"
+              className="w-full mt-6 bg-brand text-white py-3 rounded-xl font-bold"
             >
               Tutup
             </button>
-
           </div>
-
         </div>
       )}
 
@@ -493,7 +673,6 @@ function History({ keHome, keRiwayat, keProfile }) {
         keRiwayat={keRiwayat}
         keProfile={keProfile}
       />
-
     </div>
   );
 }

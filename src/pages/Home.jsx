@@ -3,7 +3,41 @@ import BottomNav from "../components/BottomNav";
 
 const API_URL = "http://localhost:5000";
 
-function Home({ keAttendance, keRiwayat, keProfile }) {
+// =========================================================
+// HELPER
+// =========================================================
+
+function getTodayKey() {
+  const now = new Date();
+
+  const year = now.getFullYear();
+
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+
+  const day = String(now.getDate()).padStart(2, "0");
+
+  return `${year}-${month}-${day}`;
+}
+
+function normalizePhoneNumber(value) {
+  if (!value) return "";
+
+  const digits = String(value).trim().replace(/\D/g, "");
+
+  if (!digits) return "";
+
+  if (digits.startsWith("0")) {
+    return `62${digits.slice(1)}`;
+  }
+
+  if (!digits.startsWith("62")) {
+    return `62${digits}`;
+  }
+
+  return digits;
+}
+
+function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
   const [user, setUser] = useState(null);
 
   const [attendance, setAttendance] = useState({
@@ -14,6 +48,18 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Jam pada kartu "Hari ini" harus ikut berjalan, bukan
+  // berhenti di waktu halaman dibuka.
+  const [sekarang, setSekarang] = useState(() => new Date());
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSekarang(new Date());
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const fetchHomeData = async () => {
@@ -70,12 +116,15 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
         // AMBIL ABSENSI HARI INI DARI DATABASE
         // =====================================================
 
-        if (profileData.nip) {
+        // Endpoint ini dicari berdasarkan nomor WhatsApp,
+        // bukan NIP.
+        const no_wa = normalizePhoneNumber(profileData.no_wa || identifier);
+
+        if (no_wa) {
           try {
             const todayResponse = await fetch(
-              `${API_URL}/api/absensi/today/${encodeURIComponent(
-                profileData.nip,
-              )}`,
+              `${API_URL}/api/absensi/today/${encodeURIComponent(no_wa)}` +
+                `?tanggal=${getTodayKey()}`,
             );
 
             console.log("📡 GET ABSENSI HARI INI:", todayResponse.status);
@@ -85,24 +134,18 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
 
               console.log("✅ ABSENSI HARI INI:", todayData);
 
-              setAttendance({
-                status:
-                  todayData.status_absen === "clock_out"
-                    ? "Sudah Clock Out"
-                    : todayData.status_absen === "clock_in"
-                      ? "Sudah Clock In"
-                      : "Belum Absen",
-
-                clockIn: todayData.jam_checkin || null,
-                clockOut: todayData.jam_checkout || null,
-              });
-            } else if (todayResponse.status === 404) {
-              console.log("ℹ️ Belum ada absensi hari ini");
+              // Respons backend: { exists, data }
+              const absensiHariIni = todayData.data;
 
               setAttendance({
-                status: "Belum Absen",
-                clockIn: null,
-                clockOut: null,
+                status: absensiHariIni?.clockOut
+                  ? "Sudah Absen Keluar"
+                  : absensiHariIni?.clockIn
+                    ? "Sudah Absen Masuk"
+                    : "Belum Absen",
+
+                clockIn: absensiHariIni?.clockIn || null,
+                clockOut: absensiHariIni?.clockOut || null,
               });
             } else {
               console.error(
@@ -131,13 +174,13 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
             // belum memberikan data
             setAttendance((current) => ({
               status: current.clockOut
-                ? "Sudah Clock Out"
+                ? "Sudah Absen Keluar"
                 : current.clockIn
-                  ? "Sudah Clock In"
+                  ? "Sudah Absen Masuk"
                   : parsed.clockOut
-                    ? "Sudah Clock Out"
+                    ? "Sudah Absen Keluar"
                     : parsed.clockIn
-                      ? "Sudah Clock In"
+                      ? "Sudah Absen Masuk"
                       : "Belum Absen",
 
               clockIn: current.clockIn || parsed.clockIn || null,
@@ -161,29 +204,13 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
   }, []);
 
   // =========================================================
-  // TODAY
-  // =========================================================
-
-  function getTodayKey() {
-    const now = new Date();
-
-    const year = now.getFullYear();
-
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-
-    const day = String(now.getDate()).padStart(2, "0");
-
-    return `${year}-${month}-${day}`;
-  }
-
-  // =========================================================
   // LOADING
   // =========================================================
 
   if (isLoading) {
     return (
-      <div className="min-h-screen w-full max-w-[430px] mx-auto bg-[#F7F9FC] flex items-center justify-center font-sans text-gray-800">
-        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-[#5B84F5]" />
+      <div className="min-h-screen w-full max-w-[430px] mx-auto bg-paper flex items-center justify-center font-sans text-navy">
+        <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-brand" />
       </div>
     );
   }
@@ -194,17 +221,29 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
 
   if (error) {
     return (
-      <div className="min-h-screen w-full max-w-[430px] mx-auto bg-[#F7F9FC] flex flex-col items-center justify-center font-sans text-gray-800 px-6">
+      <div className="min-h-screen w-full max-w-[430px] mx-auto bg-paper flex flex-col items-center justify-center font-sans text-navy px-6">
         <p className="text-red-500 font-bold mb-2">Terjadi Kesalahan</p>
 
-        <p className="text-gray-500 text-sm text-center mb-4">{error}</p>
+        <p className="text-navy/70 text-sm text-center mb-4">{error}</p>
 
-        <button
-          onClick={() => window.location.reload()}
-          className="px-4 py-2 rounded-xl bg-[#5B84F5] text-white font-semibold"
-        >
-          Coba Lagi
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 rounded-xl bg-brand text-white font-semibold"
+          >
+            Coba Lagi
+          </button>
+
+          {/* Tanpa ini pengguna terkunci di layar error: sesi
+              tersimpan membuat aplikasi selalu mulai dari Home,
+              dan reload akan gagal terus. */}
+          <button
+            onClick={keLogout}
+            className="px-4 py-2 rounded-xl border border-mist bg-white text-brand font-semibold"
+          >
+            Masuk Ulang
+          </button>
+        </div>
       </div>
     );
   }
@@ -214,22 +253,22 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
   // =========================================================
 
   return (
-    <div className="min-h-screen w-full max-w-[430px] mx-auto bg-[#F7F9FC] font-sans text-gray-800 relative overflow-x-hidden">
+    <div className="min-h-screen w-full max-w-[430px] mx-auto bg-paper font-sans text-navy relative overflow-x-hidden">
       {/* HEADER */}
 
-      <header className="bg-white px-6 pt-10 pb-5">
+      <header className="bg-white px-6 pt-8 pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-gray-400">Selamat datang,</p>
+            <p className="text-sm text-navy/60">Selamat datang,</p>
 
-            <h1 className="text-2xl font-bold text-gray-800">
+            <h1 className="text-xl font-bold text-navy">
               {user?.nama || "Pegawai"}
             </h1>
           </div>
 
-          <button className="w-11 h-11 rounded-full bg-[#EEF3FF] flex items-center justify-center">
+          <button className="w-10 h-10 rounded-full bg-mist flex items-center justify-center">
             <svg
-              className="w-6 h-6 text-[#5B84F5]"
+              className="w-6 h-6 text-brand"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -248,64 +287,26 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
       {/* PROFILE */}
 
       <section className="px-5">
-        <div className="relative overflow-hidden rounded-[28px] bg-[#5B84F5] p-5 text-white shadow-lg">
-          <div className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-white/10" />
+        <div className="relative overflow-hidden rounded-[20px] bg-brand px-4 py-3 text-white shadow-lg">
+          <div className="absolute -right-8 -top-10 w-28 h-28 rounded-full bg-white/10" />
 
-          <div className="absolute -right-5 bottom-[-45px] w-36 h-36 rounded-full bg-white/10" />
-
-          <div className="relative flex items-center gap-4">
-            <div className="w-[64px] h-[64px] rounded-full bg-white/20 border-2 border-white/70 overflow-hidden shrink-0">
-              <img
-                src={user?.foto_profil || "https://i.pravatar.cc/150?img=11"}
-                alt="Profile"
-                className="w-full h-full object-cover"
-              />
-            </div>
-
+          <div className="relative flex items-center justify-between gap-3">
             <div className="min-w-0">
-              <h2 className="font-bold text-lg truncate">
+              <h2 className="font-bold text-base truncate">
                 {user?.nama || "Pengguna"}
               </h2>
 
-              <p className="text-sm text-blue-100 mt-0.5">{user?.nip || "-"}</p>
-
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2M12 11a4 4 0 100-8 4 4 0 000 8z"
-                  />
-                </svg>
-
-                <span className="text-xs text-blue-100">
-                  {user?.jabatan || "-"}
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="relative mt-5 flex items-center justify-between">
-            <div>
-              <p className="text-xs text-blue-100">Status Kehadiran</p>
-
-              <p className="font-semibold mt-1">{attendance.status}</p>
+              <p className="text-xs text-mist mt-0.5 truncate">
+                {user?.nip || "-"}
+                {" \u2022 "}
+                {user?.jabatan || "-"}
+              </p>
             </div>
 
-            <div className="px-3 py-1.5 rounded-full bg-white/20 border border-white/30">
-              <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-yellow-300" />
+            <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 border border-white/30">
+              <span className="w-2 h-2 rounded-full bg-mist" />
 
-                <span className="text-xs font-semibold">
-                  {attendance.status}
-                </span>
-              </div>
+              <span className="text-xs font-semibold">{attendance.status}</span>
             </div>
           </div>
         </div>
@@ -313,14 +314,14 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
 
       {/* TODAY */}
 
-      <section className="px-5 mt-5">
-        <div className="bg-white rounded-[24px] p-5 shadow-sm border border-gray-100">
+      <section className="px-5 mt-3">
+        <div className="bg-white rounded-[24px] p-4 shadow-sm border border-mist">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-gray-400">Hari ini</p>
+              <p className="text-xs text-navy/60">Hari ini</p>
 
-              <h2 className="font-bold text-gray-800 mt-1">
-                {new Date().toLocaleDateString("id-ID", {
+              <h2 className="font-bold text-navy mt-1">
+                {sekarang.toLocaleDateString("id-ID", {
                   weekday: "long",
                   day: "numeric",
                   month: "long",
@@ -330,10 +331,10 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
             </div>
 
             <div className="text-right">
-              <p className="text-xs text-gray-400">Jam</p>
+              <p className="text-xs text-navy/60">Jam</p>
 
-              <p className="font-bold text-[#5B84F5]">
-                {new Date().toLocaleTimeString("id-ID", {
+              <p className="font-bold text-brand">
+                {sekarang.toLocaleTimeString("id-ID", {
                   hour: "2-digit",
                   minute: "2-digit",
                   hour12: false,
@@ -342,19 +343,19 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mt-5">
-            <div className="bg-[#F5F7FB] rounded-2xl p-3">
-              <p className="text-xs text-gray-400">Clock In</p>
+          <div className="grid grid-cols-2 gap-3 mt-4">
+            <div className="bg-mist rounded-2xl p-3">
+              <p className="text-xs text-navy/60">Jam Masuk</p>
 
-              <p className="font-bold text-gray-700 mt-1">
+              <p className="font-bold text-navy mt-1">
                 {attendance.clockIn || "--:--"}
               </p>
             </div>
 
-            <div className="bg-[#F5F7FB] rounded-2xl p-3">
-              <p className="text-xs text-gray-400">Clock Out</p>
+            <div className="bg-mist rounded-2xl p-3">
+              <p className="text-xs text-navy/60">Jam Keluar</p>
 
-              <p className="font-bold text-gray-700 mt-1">
+              <p className="font-bold text-navy mt-1">
                 {attendance.clockOut || "--:--"}
               </p>
             </div>
@@ -364,42 +365,19 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
 
       {/* ATTENDANCE TYPE */}
 
-      <section className="px-5 mt-6">
-        <div className="flex items-center justify-between mb-3">
+      <section className="px-5 mt-4">
+        <div className="flex items-center justify-between mb-2">
           <div>
-            <h2 className="font-bold text-gray-800 text-lg">Mulai Absensi</h2>
+            <h2 className="font-bold text-navy text-base">Mulai Absensi</h2>
 
-            <p className="text-xs text-gray-400 mt-0.5">
+            <p className="text-xs text-navy/60 mt-0.5">
               Pilih lokasi kerja hari ini
             </p>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-3">
-          <button
-            onClick={() => {
-              console.log("➡️ Masuk Attendance WFH");
-
-              if (!user?.no_wa) {
-                alert(
-                  "Data nomor WhatsApp belum tersedia. Silakan login kembali.",
-                );
-                return;
-              }
-
-              keAttendance("WFH");
-            }}
-            className="group bg-white rounded-[22px] p-4 shadow-sm border border-gray-100 text-left active:scale-95 transition-all"
-          >
-            <div className="w-12 h-12 rounded-2xl bg-[#E8F7FF] flex items-center justify-center text-[#16A9E8]">
-              <span className="text-xl">🏠</span>
-            </div>
-
-            <p className="font-bold text-sm mt-3">WFH</p>
-
-            <p className="text-[11px] text-gray-400 mt-1">Bekerja Remote</p>
-          </button>
-
+          {/* TOMBOL WFO */}
           <button
             onClick={() => {
               console.log("➡️ Masuk Attendance WFO");
@@ -413,17 +391,43 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
 
               keAttendance("WFO");
             }}
-            className="group bg-white rounded-[22px] p-4 shadow-sm border border-gray-100 text-left active:scale-95 transition-all"
+            className="group flex flex-col items-center text-center bg-white rounded-[18px] p-3 shadow-sm border border-mist active:scale-95 transition-all"
           >
-            <div className="w-12 h-12 rounded-2xl bg-[#FFF4D9] flex items-center justify-center text-[#F5B800]">
-              <span className="text-xl">🏢</span>
+            <div className="w-10 h-10 rounded-xl bg-mist flex items-center justify-center text-navy">
+              <span className="text-lg">🏢</span>
             </div>
 
-            <p className="font-bold text-sm mt-3">WFO</p>
+            <p className="font-bold text-sm mt-2">WFO</p>
 
-            <p className="text-[11px] text-gray-400 mt-1">Di Kantor</p>
+            <p className="text-[11px] text-navy/60 mt-1">Bekerja di Kantor</p>
           </button>
 
+          {/* TOMBOL WFH */}
+          <button
+            onClick={() => {
+              console.log("➡️ Masuk Attendance WFH");
+
+              if (!user?.no_wa) {
+                alert(
+                  "Data nomor WhatsApp belum tersedia. Silakan login kembali.",
+                );
+                return;
+              }
+
+              keAttendance("WFH");
+            }}
+            className="group flex flex-col items-center text-center bg-white rounded-[18px] p-3 shadow-sm border border-mist active:scale-95 transition-all"
+          >
+            <div className="w-10 h-10 rounded-xl bg-mist flex items-center justify-center text-navy">
+              <span className="text-lg">🏠</span>
+            </div>
+
+            <p className="font-bold text-sm mt-2">WFH</p>
+
+            <p className="text-[11px] text-navy/60 mt-1">Bekerja dari Rumah</p>
+          </button>
+
+          {/* TOMBOL DINAS */}
           <button
             onClick={() => {
               console.log("➡️ Masuk Attendance DINAS");
@@ -437,50 +441,50 @@ function Home({ keAttendance, keRiwayat, keProfile }) {
 
               keAttendance("DINAS");
             }}
-            className="group bg-white rounded-[22px] p-4 shadow-sm border border-gray-100 text-left active:scale-95 transition-all"
+            className="group flex flex-col items-center text-center bg-white rounded-[18px] p-3 shadow-sm border border-mist active:scale-95 transition-all"
           >
-            <div className="w-12 h-12 rounded-2xl bg-[#FFF0EB] flex items-center justify-center text-[#F45B35]">
-              <span className="text-xl">🚗</span>
+            <div className="w-10 h-10 rounded-xl bg-mist flex items-center justify-center text-navy">
+              <span className="text-lg">🚗</span>
             </div>
 
-            <p className="font-bold text-sm mt-3">Dinas</p>
+            <p className="font-bold text-sm mt-2">Dinas Luar</p>
 
-            <p className="text-[11px] text-gray-400 mt-1">Dinas Keluar</p>
+            <p className="text-[11px] text-navy/60 mt-1">Tugas di Luar Kantor</p>
           </button>
         </div>
       </section>
 
       {/* FEATURE */}
 
-      <section className="px-5 mt-6 pb-28">
+      <section className="px-5 mt-4 pb-24">
         <div className="grid grid-cols-2 gap-4">
           <button
             onClick={() => alert("Fitur lembur belum tersedia.")}
-            className="relative overflow-hidden text-left rounded-[25px] bg-[#65D600] text-white p-5 min-h-[190px] shadow-sm active:scale-[0.98] transition-all"
+            className="relative overflow-hidden text-left rounded-[22px] bg-brand text-white p-4 min-h-[175px] flex flex-col shadow-sm active:scale-[0.98] transition-all"
           >
-            <h2 className="text-xl font-bold relative">Lembur</h2>
+            <h2 className="text-lg font-bold relative">Lembur</h2>
 
-            <p className="text-xs leading-relaxed mt-3 text-white/90 relative">
+            <p className="text-xs leading-relaxed mt-2 text-white/90 relative">
               Isi form pengajuan lembur dan permintaan akan diperiksa oleh
               atasan.
             </p>
 
-            <span className="absolute bottom-5 left-5 right-5 bg-white text-[#57B800] rounded-full py-2.5 text-center text-xs font-bold">
+            <span className="mt-auto bg-white text-brand rounded-full py-2 text-center text-xs font-bold">
               MULAI LEMBUR
             </span>
           </button>
 
           <button
             onClick={() => alert("Fitur izin belum tersedia.")}
-            className="relative overflow-hidden text-left rounded-[25px] bg-[#16A6B8] text-white p-5 min-h-[190px] shadow-sm active:scale-[0.98] transition-all"
+            className="relative overflow-hidden text-left rounded-[22px] bg-navy text-white p-4 min-h-[175px] flex flex-col shadow-sm active:scale-[0.98] transition-all"
           >
-            <h2 className="text-xl font-bold relative">Izin</h2>
+            <h2 className="text-lg font-bold relative">Izin</h2>
 
-            <p className="text-xs leading-relaxed mt-3 text-white/90 relative">
+            <p className="text-xs leading-relaxed mt-2 text-white/90 relative">
               Isi form izin dan permintaan akan dikirim untuk persetujuan.
             </p>
 
-            <span className="absolute bottom-5 left-5 right-5 bg-white text-[#1494A4] rounded-full py-2.5 text-center text-xs font-bold">
+            <span className="mt-auto bg-white text-navy rounded-full py-2 text-center text-xs font-bold">
               AJUKAN IZIN
             </span>
           </button>

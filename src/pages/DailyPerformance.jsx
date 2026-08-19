@@ -1,71 +1,46 @@
 import { useState } from "react";
 
-function DailyPerformance({
-  attendanceData,
-  keBack,
-  onSubmitKinerja,
-}) {
+function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
   const [teksKinerja, setTeksKinerja] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const minimalKata = 50;
+  // Ubah batas minimal menjadi 20 huruf
+  const minimalKarakter = 20;
 
-  const jumlahKata =
-    teksKinerja.trim().length === 0
-      ? 0
-      : teksKinerja
-          .trim()
-          .split(/\s+/)
-          .filter(Boolean).length;
+  // Hitung jumlah huruf (karakter) bukan kata
+  const jumlahKarakter = teksKinerja.trim().length;
 
-  const sudahMemenuhi = jumlahKata >= minimalKata;
+  const sudahMemenuhi = jumlahKarakter >= minimalKarakter;
 
   const handleKirim = async () => {
-    // Jangan kirim kalau belum 50 kata
+    // Jangan kirim kalau belum 20 huruf
     if (!sudahMemenuhi) {
       alert(
-        `Kinerja harian minimal ${minimalKata} kata. Saat ini baru ${jumlahKata} kata.`
+        `Kinerja harian minimal ${minimalKarakter} huruf. Saat ini baru ${jumlahKarakter} huruf.`
       );
       return;
     }
 
     // Pastikan data attendance tersedia
     if (!attendanceData) {
-      console.error(
-        "attendanceData tidak tersedia dari Attendance.jsx"
-      );
-
-      alert(
-        "Data absensi tidak ditemukan. Silakan ulangi proses Clock Out."
-      );
-
+      console.error("attendanceData tidak tersedia dari Attendance.jsx");
+      alert("Data absensi tidak ditemukan. Silakan ulangi proses absen keluar.");
       return;
     }
 
     // Pastikan Clock Out sudah ada
     if (!attendanceData.clockOut) {
-      console.error(
-        "Clock Out belum tersedia:",
-        attendanceData
-      );
-
+      console.error("Clock Out belum tersedia:", attendanceData);
       alert(
-        "Data Clock Out belum ditemukan. Silakan lakukan Clock Out terlebih dahulu."
+        "Data absen keluar belum ditemukan. Silakan lakukan absen keluar terlebih dahulu."
       );
-
       return;
     }
 
     // Pastikan fungsi dari App tersedia
     if (typeof onSubmitKinerja !== "function") {
-      console.error(
-        "onSubmitKinerja belum diberikan dari App.jsx"
-      );
-
-      alert(
-        "Terjadi kesalahan sistem. Silakan coba lagi."
-      );
-
+      console.error("onSubmitKinerja belum diberikan dari App.jsx");
+      alert("Terjadi kesalahan sistem. Silakan coba lagi.");
       return;
     }
 
@@ -77,62 +52,34 @@ function DailyPerformance({
       console.log("=================================");
       console.log("📝 SUBMIT KINERJA HARIAN");
       console.log("=================================");
-      console.log(
-        "Attendance Data:",
-        attendanceData
-      );
-      console.log(
-        "Clock Out:",
-        attendanceData.clockOut
-      );
-      console.log(
-        "Kinerja:",
-        teksKinerja.trim()
-      );
-      console.log(
-        "Jumlah Kata:",
-        jumlahKata
-      );
+      console.log("Attendance Data:", attendanceData);
+      console.log("Clock Out:", attendanceData.clockOut);
+      console.log("Kinerja:", teksKinerja.trim());
+      console.log("Jumlah Huruf:", jumlahKarakter);
       console.log("=================================");
 
       // Kirim data kinerja ke App.jsx
-      await onSubmitKinerja(
-        teksKinerja.trim()
-      );
+      await onSubmitKinerja(teksKinerja.trim());
     } catch (error) {
-      console.error(
-        "❌ Gagal submit kinerja:",
-        error
-      );
-
-      alert(
-        error.message ||
-          "Gagal menyimpan kinerja harian."
-      );
+      console.error("❌ Gagal submit kinerja:", error);
+      alert(error.message || "Gagal menyimpan kinerja harian.");
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  const tanggalSekarang =
-    new Date().toLocaleDateString(
-      "id-ID",
-      {
-        weekday: "long",
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      }
-    );
+  const tanggalSekarang = new Date().toLocaleDateString("id-ID", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
 
   return (
-    <div className="min-h-screen w-full max-w-[430px] mx-auto bg-[#F7F9FC] font-sans flex flex-col shadow-lg">
-
+    <div className="h-[100dvh] w-full max-w-[430px] mx-auto bg-paper font-sans flex flex-col shadow-lg overflow-hidden">
       {/* HEADER */}
-      <div className="bg-[#5B84F5] px-6 pt-10 pb-6 text-white rounded-b-[30px] shadow-md">
-
+      <div className="bg-brand px-6 pt-8 pb-5 text-white rounded-b-[30px] shadow-md shrink-0">
         <div className="flex items-center gap-4">
-
           <button
             onClick={keBack}
             disabled={isSubmitting}
@@ -153,109 +100,68 @@ function DailyPerformance({
             </svg>
           </button>
 
-          <h1 className="text-xl font-bold">
-            Kinerja Harian
-          </h1>
-
+          <h1 className="text-xl font-bold">Kinerja Harian</h1>
         </div>
-
       </div>
 
       {/* CONTENT */}
-      <div className="flex-1 px-6 py-6 flex flex-col overflow-y-auto">
-
+      <div className="flex-1 min-h-0 px-6 py-4 flex flex-col overflow-hidden">
         {/* TANGGAL */}
-        <div className="mb-5">
-
-          <p className="text-xs text-gray-400">
-            Tanggal
-          </p>
-
-          <p className="font-bold text-gray-700 mt-1">
-            {tanggalSekarang}
-          </p>
-
+        <div className="mb-3">
+          <p className="text-xs text-navy/60">Tanggal</p>
+          <p className="font-bold text-navy mt-1">{tanggalSekarang}</p>
         </div>
 
         {/* INFO CLOCK OUT */}
         {attendanceData && (
-          <div className="mb-5 bg-white border border-gray-100 rounded-2xl p-4 shadow-sm">
-
+          <div className="mb-3 bg-white border border-mist rounded-2xl p-3 shadow-sm">
             <div className="flex items-center justify-between">
-
               <div>
-                <p className="text-xs text-gray-400">
-                  Clock In
-                </p>
-
-                <p className="font-bold text-gray-700 mt-1">
-                  {attendanceData.clockIn ||
-                    "Belum"}
+                <p className="text-xs text-navy/60">Jam Masuk</p>
+                <p className="font-bold text-navy mt-1">
+                  {attendanceData.clockIn || "Belum"}
                 </p>
               </div>
 
               <div className="text-right">
-                <p className="text-xs text-gray-400">
-                  Clock Out
-                </p>
-
-                <p className="font-bold text-gray-700 mt-1">
-                  {attendanceData.clockOut ||
-                    "Belum"}
+                <p className="text-xs text-navy/60">Jam Keluar</p>
+                <p className="font-bold text-navy mt-1">
+                  {attendanceData.clockOut || "Belum"}
                 </p>
               </div>
-
             </div>
-
           </div>
         )}
 
         {/* LABEL */}
         <div className="flex items-center justify-between mb-2">
-
-          <label className="text-sm font-bold text-gray-800">
+          <label className="text-sm font-bold text-navy">
             Kinerja Hari Ini
           </label>
 
           <span
             className={`text-xs font-bold ${
-              sudahMemenuhi
-                ? "text-green-500"
-                : "text-gray-400"
+              sudahMemenuhi ? "text-green-500" : "text-navy/60"
             }`}
           >
-            {jumlahKata} / {minimalKata}
+            {jumlahKarakter} / {minimalKarakter}
           </span>
-
         </div>
 
         {/* TEXTAREA */}
         <textarea
           value={teksKinerja}
-          onChange={(e) =>
-            setTeksKinerja(e.target.value)
-          }
+          onChange={(e) => setTeksKinerja(e.target.value)}
           disabled={isSubmitting}
           placeholder="Jelaskan pekerjaan yang telah dilakukan hari ini..."
-          className="w-full min-h-[260px] bg-white border border-gray-200 rounded-2xl p-4 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-[#5B84F5] resize-none shadow-sm transition-all disabled:bg-gray-100"
+          className="w-full flex-1 min-h-0 bg-white border border-mist rounded-2xl p-4 text-sm text-navy outline-none focus:ring-2 focus:ring-brand resize-none shadow-sm transition-all disabled:bg-mist"
         />
 
         {/* WORD COUNTER */}
-        <div className="mt-3 flex items-center justify-between">
-
-          <span
-            className={`text-sm font-bold ${
-              sudahMemenuhi
-                ? "text-green-500"
-                : "text-gray-500"
-            }`}
-          >
-            {jumlahKata} / {minimalKata} kata
-          </span>
-
+        <div className="mt-2 flex items-center justify-between shrink-0">
           {!sudahMemenuhi && (
             <span className="text-xs font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-md">
-              Minimal 50 kata
+              Minimal 20 huruf
             </span>
           )}
 
@@ -264,28 +170,22 @@ function DailyPerformance({
               ✓ Sudah memenuhi
             </span>
           )}
-
         </div>
 
         {/* BUTTON */}
         <button
           type="button"
           onClick={handleKirim}
-          disabled={
-            !sudahMemenuhi ||
-            isSubmitting
-          }
-          className="w-full mt-6 bg-[#5B84F5] text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-blue-100 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!sudahMemenuhi || isSubmitting}
+          className="w-full mt-3 shrink-0 bg-brand text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-mist transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting
             ? "Menyimpan..."
             : sudahMemenuhi
             ? "Kirim Absen"
-            : `Minimal ${minimalKata} kata`}
+            : `Minimal ${minimalKarakter} huruf`}
         </button>
-
       </div>
-
     </div>
   );
 }
