@@ -2,10 +2,40 @@ import { useState, useEffect } from "react";
 import BottomNav from "../components/BottomNav.jsx";
 import { API_URL } from "../config";
 
-function Profile({ keHome, keRiwayat, keProfile, keLogout }) {
+function Profile({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  // Menu rekap hanya untuk petugas. Ini sekadar menyembunyikan
+  // tombolnya — yang benar-benar menjaga datanya adalah
+  // pemeriksaan di backend pada setiap permintaan.
+  const [petugas, setPetugas] = useState(false);
+
+  useEffect(() => {
+    const cekPetugas = async () => {
+      try {
+        const noWa = localStorage.getItem("userPhone");
+
+        if (!noWa) return;
+
+        const response = await fetch(
+          `${API_URL}/api/rekap/izin?pemohon=${encodeURIComponent(noWa)}`
+        );
+
+        if (!response.ok) return;
+
+        const hasil = await response.json();
+
+        setPetugas(Boolean(hasil.petugas));
+      } catch (err) {
+        // Gagal memeriksa berarti menunya tidak muncul.
+        console.error("Gagal memeriksa hak akses rekap:", err);
+      }
+    };
+
+    cekPetugas();
+  }, []);
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -90,6 +120,15 @@ function Profile({ keHome, keRiwayat, keProfile, keLogout }) {
             </div>
           ))}
         </div>
+
+        {petugas && (
+          <button
+            onClick={keRekap}
+            className="mt-3 shrink-0 w-full bg-brand text-white py-3 rounded-xl font-bold text-sm active:scale-[0.98] transition-all"
+          >
+            Rekap Absensi Pegawai
+          </button>
+        )}
 
         <button
           onClick={keLogout}

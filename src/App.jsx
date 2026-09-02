@@ -7,6 +7,7 @@ import Attendance from "./pages/Attendance";
 import DailyPerformance from "./pages/DailyPerformance";
 import Riwayat from "./pages/History";
 import Profile from "./pages/Profile";
+import Rekap from "./pages/Rekap";
 import { API_URL } from "./config";
 
 // =========================================================
@@ -307,8 +308,17 @@ function App() {
           keHome={() => setHalamanAktif("home")}
           keRiwayat={() => setHalamanAktif("riwayat")}
           keProfile={() => setHalamanAktif("profile")}
+          keRekap={() => setHalamanAktif("rekap")}
           keLogout={handleLogout}
         />
+      )}
+
+      {/* =====================================================
+          REKAP (PETUGAS)
+      ===================================================== */}
+
+      {halamanAktif === "rekap" && (
+        <Rekap keProfile={() => setHalamanAktif("profile")} />
       )}
 
       {/* =====================================================
