@@ -4,19 +4,32 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
   const [teksKinerja, setTeksKinerja] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Ubah batas minimal menjadi 20 huruf
-  const minimalKarakter = 20;
+  // Harus sama dengan KINERJA_MIN / KINERJA_MAX di
+  // routes/absensiRoutes.js. Backend tetap memeriksanya lagi —
+  // yang di sini hanya supaya pegawai tahu batasnya sebelum
+  // menekan kirim, bukan setelah ditolak server.
+  const minimalKarakter = 10;
+  const maksimalKarakter = 100;
 
   // Hitung jumlah huruf (karakter) bukan kata
   const jumlahKarakter = teksKinerja.trim().length;
 
-  const sudahMemenuhi = jumlahKarakter >= minimalKarakter;
+  const sudahMemenuhi =
+    jumlahKarakter >= minimalKarakter &&
+    jumlahKarakter <= maksimalKarakter;
 
   const handleKirim = async () => {
     // Jangan kirim kalau belum 20 huruf
-    if (!sudahMemenuhi) {
+    if (jumlahKarakter < minimalKarakter) {
       alert(
         `Kinerja harian minimal ${minimalKarakter} huruf. Saat ini baru ${jumlahKarakter} huruf.`
+      );
+      return;
+    }
+
+    if (jumlahKarakter > maksimalKarakter) {
+      alert(
+        `Kinerja harian maksimal ${maksimalKarakter} huruf. Saat ini ${jumlahKarakter} huruf.`
       );
       return;
     }
@@ -144,7 +157,7 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
               sudahMemenuhi ? "text-green-500" : "text-navy/60"
             }`}
           >
-            {jumlahKarakter} / {minimalKarakter}
+            {jumlahKarakter} / {maksimalKarakter}
           </span>
         </div>
 
@@ -153,7 +166,8 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
           value={teksKinerja}
           onChange={(e) => setTeksKinerja(e.target.value)}
           disabled={isSubmitting}
-          placeholder="Jelaskan pekerjaan yang telah dilakukan hari ini..."
+          maxLength={maksimalKarakter}
+          placeholder="Contoh: Menyusun laporan SPJ bulan Agustus"
           className="w-full flex-1 min-h-0 bg-white border border-mist rounded-2xl p-4 text-sm text-navy outline-none focus:ring-2 focus:ring-brand resize-none shadow-sm transition-all disabled:bg-mist"
         />
 
@@ -161,7 +175,9 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
         <div className="mt-2 flex items-center justify-between shrink-0">
           {!sudahMemenuhi && (
             <span className="text-xs font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-md">
-              Minimal 20 huruf
+              {jumlahKarakter > maksimalKarakter
+                ? `Maksimal ${maksimalKarakter} huruf`
+                : `Minimal ${minimalKarakter} huruf`}
             </span>
           )}
 

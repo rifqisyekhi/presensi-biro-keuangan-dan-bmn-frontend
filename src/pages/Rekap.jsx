@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { API_URL } from "../config";
+import { API_URL, urlFoto } from "../config";
 
 // =========================================================
 // REKAP ABSENSI — HALAMAN PETUGAS
@@ -30,9 +30,16 @@ function Rekap({ keProfile }) {
   const [dari, setDari] = useState(awalBulanIni());
   const [sampai, setSampai] = useState(hariIni());
 
+  const [pegawai, setPegawai] = useState("");
+  const [jenis, setJenis] = useState("");
+
   const [data, setData] = useState(null);
   const [memuat, setMemuat] = useState(false);
   const [error, setError] = useState(null);
+
+  // Disimpan terpisah dari `data` supaya isi dropdown tidak
+  // ikut menyusut saat rekapnya sedang difilter satu nama.
+  const [daftarPegawai, setDaftarPegawai] = useState([]);
 
   const noWa = (() => {
     try {
@@ -45,7 +52,9 @@ function Rekap({ keProfile }) {
   const paramDasar =
     `dari=${encodeURIComponent(dari)}` +
     `&sampai=${encodeURIComponent(sampai)}` +
-    `&pemohon=${encodeURIComponent(noWa)}`;
+    `&pemohon=${encodeURIComponent(noWa)}` +
+    `&pegawai=${encodeURIComponent(pegawai)}` +
+    `&jenis=${encodeURIComponent(jenis)}`;
 
   const urlExport = `${API_URL}/api/rekap/export?${paramDasar}`;
 
@@ -63,6 +72,12 @@ function Rekap({ keProfile }) {
       }
 
       setData(hasil);
+
+      // Hanya diperbarui saat tidak sedang memfilter nama,
+      // supaya daftarnya tetap utuh.
+      if (!pegawai && Array.isArray(hasil.daftarPegawai)) {
+        setDaftarPegawai(hasil.daftarPegawai);
+      }
     } catch (err) {
       console.error("Error rekap:", err);
 
@@ -131,6 +146,44 @@ function Rekap({ keProfile }) {
               />
             </label>
           </div>
+
+          <div className="flex gap-3 mt-3">
+            <label className="flex-1 min-w-0">
+              <span className="text-[11px] text-navy/60">Pegawai</span>
+              <select
+                value={pegawai}
+                onChange={(e) => setPegawai(e.target.value)}
+                className="mt-1 w-full border border-mist rounded-xl px-3 py-2 text-sm bg-white"
+              >
+                <option value="">Semua pegawai</option>
+                {daftarPegawai.map((p) => (
+                  <option key={p.no_wa} value={p.no_wa}>
+                    {p.nama}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex-1 min-w-0">
+              <span className="text-[11px] text-navy/60">Status kerja</span>
+              <select
+                value={jenis}
+                onChange={(e) => setJenis(e.target.value)}
+                className="mt-1 w-full border border-mist rounded-xl px-3 py-2 text-sm bg-white"
+              >
+                <option value="">Semua</option>
+                <option value="WFO">WFO</option>
+                <option value="WFH">WFH (Dari Rumah)</option>
+                <option value="DINAS">Dinas Luar</option>
+              </select>
+            </label>
+          </div>
+
+          {!daftarPegawai.length && (
+            <p className="mt-2 text-[10px] text-navy/50">
+              Daftar pegawai terisi setelah menekan Tampilkan.
+            </p>
+          )}
 
           <div className="flex gap-3 mt-4">
             <button
@@ -241,7 +294,7 @@ function Rekap({ keProfile }) {
             <div className="mt-3 flex gap-3">
               {baris.fotoMasuk && (
                 <a
-                  href={baris.fotoMasuk}
+                  href={urlFoto(baris.fotoMasuk)}
                   target="_blank"
                   rel="noreferrer"
                   className="text-[11px] font-bold text-brand underline"
@@ -252,7 +305,7 @@ function Rekap({ keProfile }) {
 
               {baris.fotoPulang && (
                 <a
-                  href={baris.fotoPulang}
+                  href={urlFoto(baris.fotoPulang)}
                   target="_blank"
                   rel="noreferrer"
                   className="text-[11px] font-bold text-brand underline"
