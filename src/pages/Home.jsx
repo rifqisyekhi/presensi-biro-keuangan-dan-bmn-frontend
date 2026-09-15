@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import BottomNav from "../components/BottomNav";
 
-import { API_URL } from "../config";
+import { API_URL, FORM_CUTI_URL, NOMOR_BOT_SISKA } from "../config";
 
 // =========================================================
 // HELPER
@@ -37,6 +37,116 @@ function normalizePhoneNumber(value) {
   return digits;
 }
 
+// "03.13" -> "3 jam 13 menit", "03.00" -> "3 jam".
+function lamaJam(nilai) {
+  const cocok = /^(\d{1,2})[.:](\d{2})$/.exec(String(nilai || ""));
+
+  if (!cocok) return "";
+
+  const jam = Number(cocok[1]);
+  const menit = Number(cocok[2]);
+
+  return [jam ? `${jam} jam` : "", menit ? `${menit} menit` : ""]
+    .filter(Boolean)
+    .join(" ") || "0 jam";
+}
+
+// =========================================================
+// KARTU LEMBUR
+// =========================================================
+//
+// Lembur non-ASN tidak diisi di web. Mulainya jam harus pulang,
+// selesainya jam absen pulang, dan persetujuannya terjadi di
+// WhatsApp — atasan membalas pesan dari bot SisKA. Kartu ini
+// menampilkan keadaannya hari ini dan mengantar pegawai ke chat
+// bot untuk mengajukan.
+
+const LINK_BOT = `https://wa.me/${NOMOR_BOT_SISKA}?text=menu`;
+
+function KartuLembur({ lembur }) {
+  let isi;
+  let tombol = { teks: "AJUKAN LEWAT WA", link: LINK_BOT };
+
+  if (!lembur) {
+    isi = "Diajukan lewat WhatsApp SisKA, lalu disetujui atasan.";
+  } else if (!lembur.sudahMasuk) {
+    isi = "Absen masuk dulu. Jam mulai lembur dihitung dari jam masuk Anda.";
+    tombol = null;
+  } else if (lembur.dinasLuar) {
+    isi = "Lembur tidak berlaku untuk Dinas Luar.";
+    tombol = null;
+  } else if (lembur.disetujui && lembur.sudahPulang) {
+    isi = (
+      <>
+        ✅ Tercatat {lembur.jamMulai}–{lembur.jamSelesai}
+        <br />
+        Dihitung <b>{lamaJam(lembur.pembulatan)}</b>
+        {lembur.durasi && lembur.durasi !== lembur.pembulatan
+          ? ` (dari ${lamaJam(lembur.durasi)})`
+          : ""}
+      </>
+    );
+    tombol = null;
+  } else if (lembur.disetujui) {
+    // Absen pulang lewat web tidak diketahui bot, jadi bot tidak
+    // akan meminta 3 foto bukti lemburnya. Diarahkan ke WA.
+    isi = (
+      <>
+        ✅ Disetujui. Mulai {lembur.jamMulai}, selesai saat absen pulang.
+        <br />
+        Absen pulang lewat WA agar bot meminta foto bukti.
+      </>
+    );
+    tombol = { teks: "PULANG LEWAT WA", link: LINK_BOT };
+  } else if (lembur.sudahPulang) {
+    isi = `Sudah absen pulang ${lembur.jamSelesai}, tanpa persetujuan lembur.`;
+  } else {
+    isi = (
+      <>
+        Mulai <b>{lembur.jamMulai}</b> (jam pulang Anda). Belum disetujui
+        atasan.
+        <br />
+        Di WA: ketik <b>9</b> lalu <b>2</b>.
+      </>
+    );
+  }
+
+  const kelas =
+    "relative overflow-hidden text-left rounded-[22px] bg-brand text-white p-4 min-h-[175px] flex flex-col shadow-sm";
+
+  const isiKartu = (
+    <>
+      <h2 className="text-lg font-bold relative">Lembur</h2>
+
+      {/* mb-3: tanpa jarak ini tombol menempel ke teks saat
+          isinya panjang, karena mt-auto hanya mendorong ke
+          bawah selama masih ada ruang sisa. */}
+      <p className="text-xs leading-relaxed mt-2 mb-3 text-white/90 relative">
+        {isi}
+      </p>
+
+      {tombol && (
+        <span className="mt-auto bg-white text-brand rounded-full py-2 px-1 text-center text-[11px] font-bold">
+          {tombol.teks}
+        </span>
+      )}
+    </>
+  );
+
+  return tombol ? (
+    <a
+      href={tombol.link}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`${kelas} active:scale-[0.98] transition-all`}
+    >
+      {isiKartu}
+    </a>
+  ) : (
+    <div className={kelas}>{isiKartu}</div>
+  );
+}
+
 function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
   const [user, setUser] = useState(null);
 
@@ -45,6 +155,10 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
     clockIn: null,
     clockOut: null,
   });
+
+  // Keadaan lembur hari ini, dibaca dari absensi yang sama.
+  // null = absensi hari ini belum terbaca dari server.
+  const [lembur, setLembur] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -146,6 +260,20 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
 
                 clockIn: absensiHariIni?.clockIn || null,
                 clockOut: absensiHariIni?.clockOut || null,
+              });
+
+              // Jam mulai lembur = jam harus pulang, dihitung
+              // backend dari jam masuk. Durasinya hanya terisi
+              // kalau atasan sudah menyetujui.
+              setLembur({
+                sudahMasuk: Boolean(absensiHariIni?.clockIn),
+                sudahPulang: Boolean(absensiHariIni?.clockOut),
+                dinasLuar: absensiHariIni?.attendanceType === "DINAS",
+                disetujui: absensiHariIni?.lembur?.disetujui === true,
+                jamMulai: todayData.jamKerja?.jamHarusCheckout || "",
+                jamSelesai: absensiHariIni?.clockOut || "",
+                durasi: todayData.jamKerja?.durasiLembur || "",
+                pembulatan: todayData.jamKerja?.pembulatanLembur || "",
               });
             } else {
               console.error(
@@ -458,36 +586,26 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
 
       <section className="px-5 mt-4 pb-24">
         <div className="grid grid-cols-2 gap-4">
-          <button
-            onClick={() => alert("Fitur lembur belum tersedia.")}
-            className="relative overflow-hidden text-left rounded-[22px] bg-brand text-white p-4 min-h-[175px] flex flex-col shadow-sm active:scale-[0.98] transition-all"
-          >
-            <h2 className="text-lg font-bold relative">Lembur</h2>
+          <KartuLembur lembur={lembur} />
 
-            <p className="text-xs leading-relaxed mt-2 text-white/90 relative">
-              Isi form pengajuan lembur dan permintaan akan diperiksa oleh
-              atasan.
-            </p>
-
-            <span className="mt-auto bg-white text-brand rounded-full py-2 text-center text-xs font-bold">
-              MULAI LEMBUR
-            </span>
-          </button>
-
-          <button
-            onClick={() => alert("Fitur izin belum tersedia.")}
+          {/* Sama dengan menu 9 → 3 di bot: cuti diajukan lewat
+              formulir, jadi kartu ini cukup membukanya. */}
+          <a
+            href={FORM_CUTI_URL}
+            target="_blank"
+            rel="noopener noreferrer"
             className="relative overflow-hidden text-left rounded-[22px] bg-navy text-white p-4 min-h-[175px] flex flex-col shadow-sm active:scale-[0.98] transition-all"
           >
-            <h2 className="text-lg font-bold relative">Izin</h2>
+            <h2 className="text-lg font-bold relative">Cuti</h2>
 
             <p className="text-xs leading-relaxed mt-2 text-white/90 relative">
-              Isi form izin dan permintaan akan dikirim untuk persetujuan.
+              Isi formulir pengajuan cuti. Formulirnya terbuka di tab baru.
             </p>
 
             <span className="mt-auto bg-white text-navy rounded-full py-2 text-center text-xs font-bold">
-              AJUKAN IZIN
+              AJUKAN CUTI
             </span>
-          </button>
+          </a>
         </div>
       </section>
 
