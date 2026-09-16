@@ -356,6 +356,13 @@ function Rekap({ keProfile }) {
               </div>
             )}
 
+            {baris.kinerjaLembur && (
+              <div className="mt-3">
+                <p className="text-[11px] text-navy/60">Kinerja lembur</p>
+                <p className="text-[12px] break-words">{baris.kinerjaLembur}</p>
+              </div>
+            )}
+
             {baris.alamatMasuk && (
               <div className="mt-3">
                 <p className="text-[11px] text-navy/60">Lokasi masuk</p>

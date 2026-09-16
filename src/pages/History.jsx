@@ -596,6 +596,20 @@ function History({ keHome, keRiwayat, keProfile }) {
                 </div>
               </div>
 
+              {/* KINERJA LEMBUR — hanya untuk jabatan yang
+                  lemburnya otomatis, jadi biasanya kosong */}
+              {selectedItem.kinerja_lembur && (
+                <div>
+                  <p className="text-xs text-navy/60 mb-1">Kinerja Lembur</p>
+
+                  <div className="bg-mist rounded-xl p-3">
+                    <p className="text-sm text-navy text-justify">
+                      {selectedItem.kinerja_lembur}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               {/* LOKASI MASUK */}
               <div>
                 <p className="text-xs text-navy/60 mb-1">

@@ -1,8 +1,91 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { API_URL } from "../config";
+
+// =========================================================
+// JAM LEMBUR OTOMATIS
+// =========================================================
+//
+// Sebagian jabatan — petugas kebersihan — lemburnya diakui tanpa
+// pengajuan dan tanpa persetujuan atasan, karena mereka memang
+// pulang paling akhir hampir setiap hari. Yang tetap dicatat
+// adalah APA yang dikerjakan selama jam itu.
+//
+// Aturannya disalin dari backend (utils/jamKerja.js): lembur
+// dihitung dari Jam Harus Checkout, dibulatkan ke bawah per jam
+// penuh. Backend tetap memeriksanya lagi saat absen pulang
+// disimpan — yang di sini hanya supaya pegawai tahu sebelum
+// menekan kirim, bukan setelah ditolak server.
+
+function menitDariJam(nilai) {
+  const cocok = /^(\d{1,2})[.:](\d{2})$/.exec(String(nilai || "").trim());
+
+  return cocok ? Number(cocok[1]) * 60 + Number(cocok[2]) : null;
+}
+
+function hitungJamLembur(jamPulang, jamHarusCheckout) {
+  const pulang = menitDariJam(jamPulang);
+  const harus = menitDariJam(jamHarusCheckout);
+
+  if (pulang === null || harus === null) return 0;
+
+  return Math.max(0, Math.floor((pulang - harus) / 60));
+}
 
 function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
   const [teksKinerja, setTeksKinerja] = useState("");
+  const [teksKinerjaLembur, setTeksKinerjaLembur] = useState("");
+  const [jamLembur, setJamLembur] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Jam Harus Checkout dan penanda lembur otomatis dibaca dari
+  // backend, bukan dihitung ulang di sini: angkanya harus sama
+  // persis dengan yang tercetak di berkas rekap.
+  useEffect(() => {
+    const noWa = (() => {
+      try {
+        return localStorage.getItem("userPhone") || "";
+      } catch {
+        return "";
+      }
+    })();
+
+    if (!noWa || !attendanceData?.clockOut) return;
+
+    let dibatalkan = false;
+
+    (async () => {
+      try {
+        const response = await fetch(
+          `${API_URL}/api/absensi/today/${encodeURIComponent(noWa)}`,
+        );
+
+        const hasil = await response.json();
+
+        if (dibatalkan || !response.ok || !hasil.exists) return;
+
+        if (hasil.data?.lemburOtomatis !== true) return;
+
+        setJamLembur(
+          hitungJamLembur(
+            attendanceData.clockOut,
+            hasil.jamKerja?.jamHarusCheckout,
+          ),
+        );
+      } catch (error) {
+        // Gagal membaca status lembur tidak boleh menghalangi absen
+        // pulang. Kolom kinerja lembur hanya tidak muncul, dan
+        // backend akan menolak kalau ternyata memang wajib —
+        // dengan pesan yang menjelaskan alasannya.
+        console.error("Gagal membaca status lembur:", error);
+      }
+    })();
+
+    return () => {
+      dibatalkan = true;
+    };
+  }, [attendanceData?.clockOut]);
+
+  const perluKinerjaLembur = jamLembur >= 1;
 
   // Harus sama dengan KINERJA_MIN / KINERJA_MAX di
   // routes/absensiRoutes.js. Backend tetap memeriksanya lagi —
@@ -14,9 +97,17 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
   // Hitung jumlah huruf (karakter) bukan kata
   const jumlahKarakter = teksKinerja.trim().length;
 
+  const jumlahKarakterLembur = teksKinerjaLembur.trim().length;
+
+  const lemburMemenuhi =
+    !perluKinerjaLembur ||
+    (jumlahKarakterLembur >= minimalKarakter &&
+      jumlahKarakterLembur <= maksimalKarakter);
+
   const sudahMemenuhi =
     jumlahKarakter >= minimalKarakter &&
-    jumlahKarakter <= maksimalKarakter;
+    jumlahKarakter <= maksimalKarakter &&
+    lemburMemenuhi;
 
   const handleKirim = async () => {
     // Jangan kirim kalau belum 20 huruf
@@ -30,6 +121,14 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
     if (jumlahKarakter > maksimalKarakter) {
       alert(
         `Kinerja harian maksimal ${maksimalKarakter} huruf. Saat ini ${jumlahKarakter} huruf.`
+      );
+      return;
+    }
+
+    if (perluKinerjaLembur && jumlahKarakterLembur < minimalKarakter) {
+      alert(
+        `Anda lembur ${jamLembur} jam hari ini. Kinerja lembur wajib diisi, ` +
+          `minimal ${minimalKarakter} huruf.`
       );
       return;
     }
@@ -72,7 +171,10 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
       console.log("=================================");
 
       // Kirim data kinerja ke App.jsx
-      await onSubmitKinerja(teksKinerja.trim());
+      await onSubmitKinerja(
+        teksKinerja.trim(),
+        perluKinerjaLembur ? teksKinerjaLembur.trim() : "",
+      );
     } catch (error) {
       console.error("❌ Gagal submit kinerja:", error);
       alert(error.message || "Gagal menyimpan kinerja harian.");
@@ -187,6 +289,50 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
             </span>
           )}
         </div>
+
+        {/* KINERJA LEMBUR */}
+
+        {perluKinerjaLembur && (
+          <>
+            <div className="mt-3 flex items-center justify-between shrink-0">
+              <label className="text-sm font-bold text-navy">
+                Kinerja Lembur{" "}
+                <span className="text-brand">({jamLembur} jam)</span>
+              </label>
+
+              <span
+                className={`text-xs font-bold ${
+                  lemburMemenuhi ? "text-green-500" : "text-navy/60"
+                }`}
+              >
+                {jumlahKarakterLembur} / {maksimalKarakter}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-navy/60 mb-2 shrink-0">
+              Lembur Anda terhitung otomatis, tanpa perlu diajukan.
+            </p>
+
+            <textarea
+              value={teksKinerjaLembur}
+              onChange={(e) => setTeksKinerjaLembur(e.target.value)}
+              disabled={isSubmitting}
+              maxLength={maksimalKarakter}
+              placeholder="Contoh: Membersihkan ruang rapat lantai 3 dan 4"
+              className="w-full flex-1 min-h-0 bg-white border border-mist rounded-2xl p-4 text-sm text-navy outline-none focus:ring-2 focus:ring-brand resize-none shadow-sm transition-all disabled:bg-mist"
+            />
+
+            {!lemburMemenuhi && (
+              <div className="mt-2 shrink-0">
+                <span className="text-xs font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-md">
+                  {jumlahKarakterLembur > maksimalKarakter
+                    ? `Maksimal ${maksimalKarakter} huruf`
+                    : `Minimal ${minimalKarakter} huruf`}
+                </span>
+              </div>
+            )}
+          </>
+        )}
 
         {/* BUTTON */}
         <button

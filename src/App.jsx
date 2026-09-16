@@ -77,7 +77,7 @@ function App() {
   // CLOCK OUT + KINERJA HARIAN
   // BARU DISIMPAN KE DATABASE DI SINI
   // =========================================================
-  const handleSubmitKinerja = async (teksKinerja) => {
+  const handleSubmitKinerja = async (teksKinerja, teksKinerjaLembur = "") => {
     try {
       console.log("=================================");
       console.log("🔴 FINAL SUBMIT ABSENSI");
@@ -141,6 +141,11 @@ function App() {
 
         // FINAL KINERJA
         kinerja_harian: teksKinerja.trim(),
+
+        // Hanya terisi untuk jabatan yang lemburnya otomatis
+        // (petugas kebersihan) dan hanya kalau lemburnya genap
+        // satu jam. Lihat DailyPerformance.jsx.
+        kinerja_lembur: String(teksKinerjaLembur || "").trim(),
       };
 
       console.log("=================================");
