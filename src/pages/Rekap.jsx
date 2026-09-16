@@ -37,6 +37,14 @@ function Rekap({ keProfile }) {
   const [memuat, setMemuat] = useState(false);
   const [error, setError] = useState(null);
 
+  // Penghapusan dibuat dua langkah: tombol "Hapus" hanya
+  // membuka konfirmasi di dalam kartunya sendiri, dan baru
+  // klik kedua yang benar-benar menghapus. Halaman ini dibuka
+  // di layar sentuh, dan datanya tidak bisa dikembalikan.
+  const [konfirmasiHapus, setKonfirmasiHapus] = useState(null);
+  const [sedangHapus, setSedangHapus] = useState(null);
+  const [pesan, setPesan] = useState(null);
+
   // Disimpan terpisah dari `data` supaya isi dropdown tidak
   // ikut menyusut saat rekapnya sedang difilter satu nama.
   const [daftarPegawai, setDaftarPegawai] = useState([]);
@@ -61,6 +69,8 @@ function Rekap({ keProfile }) {
   const ambilData = async () => {
     setMemuat(true);
     setError(null);
+    setPesan(null);
+    setKonfirmasiHapus(null);
 
     try {
       const response = await fetch(`${API_URL}/api/rekap?${paramDasar}`);
@@ -85,6 +95,60 @@ function Rekap({ keProfile }) {
       setData(null);
     } finally {
       setMemuat(false);
+    }
+  };
+
+  // =======================================================
+  // HAPUS SATU BARIS
+  // =======================================================
+  //
+  // Dipakai untuk membuang sisa data pengujian dan salah absen
+  // yang tidak bisa diperbaiki pegawainya sendiri. Baris yang
+  // salah bukan cuma mengotori rekap: satu orang hanya boleh
+  // punya satu absensi per tanggal, jadi baris itu menghalangi
+  // absensi yang benar di tanggal yang sama.
+
+  const hapusBaris = async (baris) => {
+    setSedangHapus(baris.id);
+    setError(null);
+    setPesan(null);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/rekap/${encodeURIComponent(baris.id)}` +
+          `?pemohon=${encodeURIComponent(noWa)}`,
+        { method: "DELETE" },
+      );
+
+      const hasil = await response.json();
+
+      if (!response.ok) {
+        throw new Error(hasil.message || "Gagal menghapus data.");
+      }
+
+      // Barisnya dibuang dari daftar yang sedang tampil, bukan
+      // dengan memuat ulang seluruh rekap: petugas biasanya
+      // menghapus beberapa baris berurutan, dan memuat ulang
+      // akan melempar posisi gulirnya kembali ke atas setiap
+      // kali.
+      setData((lama) =>
+        lama
+          ? {
+              ...lama,
+              total: Math.max(0, (lama.total || 0) - 1),
+              data: lama.data.filter((d) => d.id !== baris.id),
+            }
+          : lama,
+      );
+
+      setPesan(hasil.message || "Data absensi dihapus.");
+      setKonfirmasiHapus(null);
+    } catch (err) {
+      console.error("Error hapus absensi:", err);
+
+      setError(err.message);
+    } finally {
+      setSedangHapus(null);
     }
   };
 
@@ -211,6 +275,14 @@ function Rekap({ keProfile }) {
           </div>
         )}
 
+        {/* ============ HASIL HAPUS ============ */}
+
+        {pesan && (
+          <div className="bg-white rounded-[20px] p-4 border border-emerald-200 text-sm text-emerald-700">
+            {pesan}
+          </div>
+        )}
+
         {/* ============ RINGKASAN ============ */}
 
         {ringkasan && (
@@ -241,7 +313,7 @@ function Rekap({ keProfile }) {
 
         {data?.data?.map((baris, i) => (
           <div
-            key={`${baris.no_wa}-${baris.tanggal}-${i}`}
+            key={baris.id || `${baris.no_wa}-${baris.tanggal}-${i}`}
             className="bg-white rounded-[20px] p-4 border border-mist shadow-[0_2px_10px_rgba(0,0,0,0.03)]"
           >
             <div className="flex items-start justify-between gap-3">
@@ -314,6 +386,47 @@ function Rekap({ keProfile }) {
                 </a>
               )}
             </div>
+
+            {/* ---------- HAPUS ---------- */}
+
+            {konfirmasiHapus === baris.id ? (
+              <div className="mt-3 pt-3 border-t border-mist">
+                <p className="text-[11px] text-navy/70 leading-relaxed">
+                  Hapus absensi <b>{baris.nama || baris.no_wa}</b> tanggal{" "}
+                  {baris.tanggal}? Fotonya ikut terhapus dan data ini
+                  tidak bisa dikembalikan.
+                </p>
+
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => hapusBaris(baris)}
+                    disabled={sedangHapus === baris.id}
+                    className="flex-1 bg-red-600 text-white py-2 rounded-xl font-bold text-[12px] active:scale-[0.98] transition-all disabled:opacity-60"
+                  >
+                    {sedangHapus === baris.id ? "Menghapus..." : "Ya, hapus"}
+                  </button>
+
+                  <button
+                    onClick={() => setKonfirmasiHapus(null)}
+                    disabled={sedangHapus === baris.id}
+                    className="flex-1 border border-mist text-navy py-2 rounded-xl font-bold text-[12px] active:scale-[0.98] transition-all disabled:opacity-60"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                onClick={() => {
+                  setKonfirmasiHapus(baris.id);
+                  setPesan(null);
+                  setError(null);
+                }}
+                className="mt-3 text-[11px] font-bold text-red-600"
+              >
+                Hapus data ini
+              </button>
+            )}
           </div>
         ))}
       </div>

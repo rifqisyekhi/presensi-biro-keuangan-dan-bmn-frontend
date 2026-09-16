@@ -37,6 +37,12 @@ function normalizePhoneNumber(value) {
   return digits;
 }
 
+const LABEL_JENIS = {
+  WFO: "WFO",
+  WFH: "WFH",
+  DINAS: "Dinas Luar",
+};
+
 // "03.13" -> "3 jam 13 menit", "03.00" -> "3 jam".
 function lamaJam(nilai) {
   const cocok = /^(\d{1,2})[.:](\d{2})$/.exec(String(nilai || ""));
@@ -281,6 +287,12 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
 
                 clockIn: absensiHariIni?.clockIn || null,
                 clockOut: absensiHariIni?.clockOut || null,
+
+                // Jenis kehadiran saat absen masuk. Absen pulang WAJIB
+                // memakai jenis yang sama — halaman Attendance menolak
+                // kalau berbeda — jadi angka ini yang dipakai tombol
+                // "Absen Pulang", bukan pilihan baru dari pegawai.
+                jenis: absensiHariIni?.attendanceType || null,
               });
 
               // Jam mulai lembur = jam harus pulang, dihitung
@@ -512,8 +524,58 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
         </div>
       </section>
 
-      {/* ATTENDANCE TYPE */}
+      {/* ===================================================
+          SUDAH ABSEN MASUK — TINGGAL PULANG
 
+          Dulu bagian ini selalu menampilkan "Mulai Absensi" dengan
+          tiga tombol jenis kehadiran, apa pun keadaannya. Pegawai yang
+          sudah absen masuk — apalagi lewat WhatsApp, sehingga browser
+          ini tidak punya jejaknya — melihat layar yang sama persis
+          seperti belum absen, dan harus menebak sendiri bahwa jalan ke
+          absen pulang adalah menekan jenis yang SAMA dengan absen
+          masuknya. Salah pilih, tombol di halaman berikutnya justru
+          mati karena dianggap tidak cocok.
+      =================================================== */}
+
+      {attendance.clockIn && !attendance.clockOut ? (
+        <section className="px-5 mt-4">
+          <h2 className="font-bold text-navy text-base">Absen Pulang</h2>
+
+          <p className="text-xs text-navy/60 mt-0.5 mb-3">
+            Anda absen masuk pukul {attendance.clockIn} WIB
+            {attendance.jenis ? ` (${LABEL_JENIS[attendance.jenis] || attendance.jenis})` : ""}
+          </p>
+
+          <button
+            onClick={() => {
+              if (!user?.no_wa) {
+                alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
+                return;
+              }
+
+              // Jenis kehadiran diambil dari absen masuknya, bukan
+              // dipilih ulang — itulah yang membuat tombol ini tidak
+              // bisa salah.
+              keAttendance(attendance.jenis || "WFO");
+            }}
+            className="w-full bg-brand text-white py-3.5 rounded-2xl font-bold shadow-sm active:scale-[0.98] transition-all"
+          >
+            ABSEN PULANG
+          </button>
+        </section>
+      ) : attendance.clockOut ? (
+        <section className="px-5 mt-4">
+          <div className="bg-white rounded-[18px] p-4 border border-mist text-center">
+            <p className="font-bold text-navy text-sm">
+              ✅ Absensi hari ini sudah lengkap
+            </p>
+
+            <p className="text-xs text-navy/60 mt-1">
+              Masuk {attendance.clockIn} · Pulang {attendance.clockOut}
+            </p>
+          </div>
+        </section>
+      ) : (
       <section className="px-5 mt-4">
         <div className="flex items-center justify-between mb-2">
           <div>
@@ -602,6 +664,7 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
           </button>
         </div>
       </section>
+      )}
 
       {/* FEATURE */}
 

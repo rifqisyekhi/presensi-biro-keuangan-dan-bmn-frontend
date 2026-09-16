@@ -548,6 +548,26 @@ function Attendance({
         return;
       }
 
+      // Browser hanya mengizinkan GPS di "secure context" — HTTPS atau
+      // localhost. Di halaman http:// biasa, getCurrentPosition langsung
+      // gagal dengan kode 1 (PERMISSION_DENIED), SAMA PERSIS dengan kode
+      // saat pengguna benar-benar menolak izin. Tanpa pemeriksaan ini,
+      // pesannya berbunyi "izin lokasi ditolak" dan pegawai dikirim
+      // mengejar setelan yang sebenarnya sudah benar — GPS menyala, izin
+      // sudah diberikan, tapi permintaan izinnya memang tidak pernah
+      // muncul karena browser menolak lebih dulu.
+      if (!window.isSecureContext) {
+        reject(
+          new Error(
+            "GPS diblokir browser karena halaman ini dibuka lewat http://, " +
+              "bukan https://. Bukan izin Anda yang bermasalah.\n\n" +
+              "Silakan absen lewat WhatsApp SisKA, atau laporkan ke admin " +
+              "agar alamat web ini dipasangi HTTPS."
+          )
+        );
+        return;
+      }
+
       setLoadingText("Mencari lokasi GPS...");
 
       navigator.geolocation.getCurrentPosition(
@@ -593,8 +613,13 @@ function Attendance({
           let message = "Gagal mendapatkan lokasi.";
 
           if (error.code === 1) {
-            message =
-              "Izin lokasi ditolak. Silakan izinkan akses lokasi.";
+            // Pesan browser sendiri yang membedakan keduanya: penolakan
+            // karena bukan HTTPS berbunyi "Only secure origins are
+            // allowed". Dijaga di sini juga, kalau-kalau isSecureContext
+            // di atas terlewat pada browser lama.
+            message = /secure origin/i.test(error.message || "")
+              ? "GPS diblokir karena halaman ini dibuka lewat http://, bukan https://. Bukan izin Anda yang bermasalah — laporkan ke admin."
+              : "Izin lokasi ditolak. Silakan izinkan akses lokasi.";
           }
 
           if (error.code === 2) {
