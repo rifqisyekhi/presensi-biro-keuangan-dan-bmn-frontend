@@ -75,6 +75,13 @@ function KartuLembur({ lembur }) {
   } else if (lembur.dinasLuar) {
     isi = "Lembur tidak berlaku untuk Dinas Luar.";
     tombol = null;
+  } else if (!lembur.jamMulai) {
+    // Jam harus pulang kosong padahal sudah absen masuk dan bukan
+    // dinas luar: jabatannya memang mengikuti jadwal tugas (supir).
+    // Tanpa cabang ini kartunya menulis "Mulai  (jam pulang Anda)"
+    // dengan jam kosong.
+    isi = "Lembur tidak berlaku untuk jabatan Anda — jam kerja mengikuti jadwal tugas.";
+    tombol = null;
   } else if (lembur.disetujui && lembur.sudahPulang) {
     isi = (
       <>
@@ -250,6 +257,20 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
 
               // Respons backend: { exists, data }
               const absensiHariIni = todayData.data;
+
+              // Server bilang tidak ada absensi hari ini, tapi browser
+              // masih menyimpan salinannya. Itu terjadi kalau datanya
+              // dihapus dari sisi lain — misalnya reset data pengujian
+              // lewat bot. Tanpa dibuang, cadangan di bawah akan
+              // menghidupkannya lagi dan halaman ini menampilkan
+              // absensi yang sudah tidak ada.
+              if (!absensiHariIni) {
+                try {
+                  localStorage.removeItem(`attendance_${getTodayKey()}`);
+                } catch (storageError) {
+                  console.error("Gagal menghapus draf absensi:", storageError);
+                }
+              }
 
               setAttendance({
                 status: absensiHariIni?.clockOut
