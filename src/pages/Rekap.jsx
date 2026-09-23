@@ -10,6 +10,14 @@ import { API_URL, urlFoto } from "../config";
 // setiap permintaan; kondisi di sini hanya menyembunyikan
 // menunya dari pegawai biasa.
 
+// Nilai yang dikirim ke backend beserta labelnya di layar.
+// Urutannya mengikuti seberapa sering dipakai, bukan abjad.
+const JENIS_KEHADIRAN = [
+  { nilai: "WFO", label: "WFO" },
+  { nilai: "WFH", label: "WFH" },
+  { nilai: "DINAS", label: "Dinas Luar" },
+];
+
 function awalBulanIni() {
   const now = new Date();
 
@@ -45,6 +53,14 @@ function Rekap({ keProfile }) {
   const [sedangHapus, setSedangHapus] = useState(null);
   const [pesan, setPesan] = useState(null);
 
+  // Ubah status dibuka per kartu, sama seperti hapus: id baris
+  // yang sedang disunting, pilihan yang belum disimpan, dan
+  // catatan opsionalnya.
+  const [editStatus, setEditStatus] = useState(null);
+  const [statusBaru, setStatusBaru] = useState("");
+  const [alasanEdit, setAlasanEdit] = useState("");
+  const [sedangSimpan, setSedangSimpan] = useState(null);
+
   // Disimpan terpisah dari `data` supaya isi dropdown tidak
   // ikut menyusut saat rekapnya sedang difilter satu nama.
   const [daftarPegawai, setDaftarPegawai] = useState([]);
@@ -71,6 +87,7 @@ function Rekap({ keProfile }) {
     setError(null);
     setPesan(null);
     setKonfirmasiHapus(null);
+    setEditStatus(null);
 
     try {
       const response = await fetch(`${API_URL}/api/rekap?${paramDasar}`);
@@ -149,6 +166,92 @@ function Rekap({ keProfile }) {
       setError(err.message);
     } finally {
       setSedangHapus(null);
+    }
+  };
+
+  // =======================================================
+  // UBAH JENIS KEHADIRAN
+  // =======================================================
+  //
+  // Dipakai ketika hari seorang pegawai berubah di tengah
+  // jalan — berangkat WFO, lalu ditugaskan dinas luar sesudah
+  // makan siang. Yang bersangkutan tidak bisa membetulkannya
+  // sendiri: absen masuk hari itu sudah terpakai, dan satu
+  // orang hanya boleh punya satu absensi per tanggal.
+
+  const mulaiUbahStatus = (baris) => {
+    setEditStatus(baris.id);
+    setStatusBaru(baris.attendanceType || "");
+    setAlasanEdit("");
+    setKonfirmasiHapus(null);
+    setPesan(null);
+    setError(null);
+  };
+
+  const ubahStatus = async (baris) => {
+    setSedangSimpan(baris.id);
+    setError(null);
+    setPesan(null);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/rekap/${encodeURIComponent(baris.id)}/status` +
+          `?pemohon=${encodeURIComponent(noWa)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            attendanceType: statusBaru,
+            alasan: alasanEdit,
+          }),
+        },
+      );
+
+      const hasil = await response.json();
+
+      if (!response.ok) {
+        throw new Error(hasil.message || "Gagal mengubah status.");
+      }
+
+      // Hanya kartu ini yang diperbarui, bukan seluruh rekap
+      // dimuat ulang — alasannya sama seperti pada hapus:
+      // petugas biasanya membetulkan beberapa baris berurutan,
+      // dan memuat ulang melempar posisi gulirnya ke atas.
+      //
+      // Kartu ini memang tidak menampilkan angka jam kerja —
+      // Terlambat, Menit Kerja, dan Lembur hanya ada di berkas
+      // Excel, dihitung backend saat rekap dibaca. Karena itu
+      // panel suntingnya menyebutkan lebih dulu kolom apa saja
+      // yang ikut berubah: di layar ini perubahannya tidak
+      // kelihatan sama sekali.
+      setData((lama) =>
+        lama
+          ? {
+              ...lama,
+              data: lama.data.map((d) =>
+                d.id === baris.id
+                  ? {
+                      ...d,
+                      attendanceType:
+                        hasil.absensi?.attendanceType || statusBaru,
+                      jenis: hasil.absensi?.jenis || d.jenis,
+                      perubahanStatus:
+                        hasil.absensi?.perubahanStatus || d.perubahanStatus,
+                    }
+                  : d,
+              ),
+            }
+          : lama,
+      );
+
+      setPesan(hasil.message || "Status absensi diubah.");
+      setEditStatus(null);
+    } catch (err) {
+      console.error("Error ubah status:", err);
+
+      setError(err.message);
+    } finally {
+      setSedangSimpan(null);
     }
   };
 
@@ -394,6 +497,122 @@ function Rekap({ keProfile }) {
               )}
             </div>
 
+            {/* ---------- JEJAK PERUBAHAN STATUS ---------- */}
+
+            {baris.perubahanStatus && (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                <p className="text-[10px] font-bold text-amber-700">
+                  Status diubah petugas
+                </p>
+                <p className="text-[11px] text-amber-900 break-words">
+                  Dari {baris.perubahanStatus.dariLabel} oleh{" "}
+                  {baris.perubahanStatus.oleh || "-"}
+                  {baris.perubahanStatus.pada
+                    ? `, ${new Date(
+                        baris.perubahanStatus.pada,
+                      ).toLocaleString("id-ID", {
+                        dateStyle: "short",
+                        timeStyle: "short",
+                      })}`
+                    : ""}
+                  {baris.perubahanStatus.alasan
+                    ? ` — ${baris.perubahanStatus.alasan}`
+                    : ""}
+                  {baris.perubahanStatus.jumlah > 1
+                    ? ` (${baris.perubahanStatus.jumlah}x diubah)`
+                    : ""}
+                </p>
+              </div>
+            )}
+
+            {/* ---------- UBAH STATUS ---------- */}
+
+            {editStatus === baris.id && (
+              <div className="mt-3 pt-3 border-t border-mist">
+                <p className="text-[11px] text-navy/70">
+                  Ubah status kehadiran{" "}
+                  <b>{baris.nama || baris.no_wa}</b> tanggal {baris.tanggal}.
+                </p>
+
+                <div className="flex gap-2 mt-2">
+                  {JENIS_KEHADIRAN.map((j) => (
+                    <button
+                      key={j.nilai}
+                      onClick={() => setStatusBaru(j.nilai)}
+                      disabled={sedangSimpan === baris.id}
+                      className={
+                        "flex-1 py-2 rounded-xl font-bold text-[11px] border transition-all active:scale-[0.98] disabled:opacity-60 " +
+                        (statusBaru === j.nilai
+                          ? "bg-brand text-white border-brand"
+                          : "bg-white text-navy border-mist")
+                      }
+                    >
+                      {j.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Konsekuensinya disebut sebelum disimpan, bukan
+                    sesudah. Status bukan cuma label: ia dasar
+                    perhitungan jam kerja, dan petugas tidak bisa
+                    menduga itu dari kata "Dinas Luar" saja. */}
+                {statusBaru === "DINAS" && baris.attendanceType !== "DINAS" && (
+                  <p className="mt-2 text-[10px] text-amber-700 leading-relaxed">
+                    Dinas luar tidak terikat jam kantor. Kolom Jam Harus
+                    Checkout, Terlambat, Menit Kerja, dan Lembur akan
+                    dikosongkan di rekap dan di berkas Excel.
+                  </p>
+                )}
+
+                {baris.attendanceType === "DINAS" &&
+                  statusBaru &&
+                  statusBaru !== "DINAS" && (
+                    <p className="mt-2 text-[10px] text-amber-700 leading-relaxed">
+                      Jam kantor akan berlaku lagi. Terlambat, Menit Kerja,
+                      dan Lembur dihitung ulang dari jam masuk dan jam pulang
+                      yang sudah tercatat.
+                    </p>
+                  )}
+
+                <input
+                  type="text"
+                  value={alasanEdit}
+                  onChange={(e) => setAlasanEdit(e.target.value)}
+                  disabled={sedangSimpan === baris.id}
+                  placeholder="Catatan (opsional), mis. ditugaskan ke Kanwil"
+                  maxLength={300}
+                  className="mt-2 w-full border border-mist rounded-xl px-3 py-2 text-[12px] outline-none focus:border-brand disabled:opacity-60"
+                />
+
+                <p className="mt-1 text-[10px] text-navy/50 leading-relaxed">
+                  Jam, foto, dan titik lokasi tidak berubah. Perubahan ini
+                  tercatat beserta nama petugas dan waktunya.
+                </p>
+
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => ubahStatus(baris)}
+                    disabled={
+                      sedangSimpan === baris.id ||
+                      !statusBaru ||
+                      statusBaru === baris.attendanceType
+                    }
+                    className="flex-1 bg-brand text-white py-2 rounded-xl font-bold text-[12px] active:scale-[0.98] transition-all disabled:opacity-40"
+                  >
+                    {sedangSimpan === baris.id ? "Menyimpan..." : "Simpan"}
+                  </button>
+
+                  <button
+                    onClick={() => setEditStatus(null)}
+                    disabled={sedangSimpan === baris.id}
+                    className="flex-1 border border-mist text-navy py-2 rounded-xl font-bold text-[12px] active:scale-[0.98] transition-all disabled:opacity-60"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ---------- HAPUS ---------- */}
 
             {konfirmasiHapus === baris.id ? (
@@ -423,16 +642,28 @@ function Rekap({ keProfile }) {
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => {
-                  setKonfirmasiHapus(baris.id);
-                  setPesan(null);
-                  setError(null);
-                }}
-                className="mt-3 text-[11px] font-bold text-red-600"
-              >
-                Hapus data ini
-              </button>
+              editStatus !== baris.id && (
+                <div className="mt-3 flex gap-4">
+                  <button
+                    onClick={() => mulaiUbahStatus(baris)}
+                    className="text-[11px] font-bold text-brand"
+                  >
+                    Ubah status
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setKonfirmasiHapus(baris.id);
+                      setEditStatus(null);
+                      setPesan(null);
+                      setError(null);
+                    }}
+                    className="text-[11px] font-bold text-red-600"
+                  >
+                    Hapus data ini
+                  </button>
+                </div>
+              )
             )}
           </div>
         ))}
