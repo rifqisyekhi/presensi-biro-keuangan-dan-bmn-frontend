@@ -18,6 +18,19 @@ const JENIS_KEHADIRAN = [
   { nilai: "DINAS", label: "Dinas Luar" },
 ];
 
+// Rekap menyimpan jam sebagai "07.30", sedangkan <input
+// type="time"> hanya menerima "HH:MM" dan menampilkan kosong
+// kalau bentuknya tidak pas — termasuk untuk "7.30" yang jamnya
+// satu angka. Karena itu dibakukan dulu, bukan diserahkan ke
+// input-nya.
+function jamKeInput(jam) {
+  const cocok = /^(\d{1,2})[.:](\d{2})$/.exec(String(jam || "").trim());
+
+  if (!cocok) return "";
+
+  return `${cocok[1].padStart(2, "0")}:${cocok[2]}`;
+}
+
 function awalBulanIni() {
   const now = new Date();
 
@@ -61,6 +74,13 @@ function Rekap({ keProfile }) {
   const [alasanEdit, setAlasanEdit] = useState("");
   const [sedangSimpan, setSedangSimpan] = useState(null);
 
+  // Ubah jam, pola yang sama: satu kartu saja yang terbuka.
+  const [editJam, setEditJam] = useState(null);
+  const [jamMasukBaru, setJamMasukBaru] = useState("");
+  const [jamPulangBaru, setJamPulangBaru] = useState("");
+  const [alasanJam, setAlasanJam] = useState("");
+  const [sedangSimpanJam, setSedangSimpanJam] = useState(null);
+
   // Disimpan terpisah dari `data` supaya isi dropdown tidak
   // ikut menyusut saat rekapnya sedang difilter satu nama.
   const [daftarPegawai, setDaftarPegawai] = useState([]);
@@ -88,6 +108,7 @@ function Rekap({ keProfile }) {
     setPesan(null);
     setKonfirmasiHapus(null);
     setEditStatus(null);
+    setEditJam(null);
 
     try {
       const response = await fetch(`${API_URL}/api/rekap?${paramDasar}`);
@@ -183,6 +204,7 @@ function Rekap({ keProfile }) {
     setEditStatus(baris.id);
     setStatusBaru(baris.attendanceType || "");
     setAlasanEdit("");
+    setEditJam(null);
     setKonfirmasiHapus(null);
     setPesan(null);
     setError(null);
@@ -252,6 +274,90 @@ function Rekap({ keProfile }) {
       setError(err.message);
     } finally {
       setSedangSimpan(null);
+    }
+  };
+
+  // =======================================================
+  // UBAH JAM MASUK DAN JAM PULANG
+  // =======================================================
+  //
+  // Absensi yang gagal di tengah jalan membuat pegawai rugi
+  // tanpa itu kesalahan siapa pun: foto berkali-kali gagal
+  // diunggah sampai jam masuknya tercatat terlambat, atau bot
+  // mentok sebelum absen pulang sehingga kolomnya kosong —
+  // padahal orangnya hadir sampai sore. Tidak semua orang absen
+  // lewat cadangan, jadi tanpa fitur ini kerugiannya menempel di
+  // rekap yang dipakai menilai kinerjanya.
+
+  const mulaiUbahJam = (baris) => {
+    setEditJam(baris.id);
+    setJamMasukBaru(jamKeInput(baris.jamMasuk));
+    setJamPulangBaru(jamKeInput(baris.jamPulang));
+    setAlasanJam("");
+    setEditStatus(null);
+    setKonfirmasiHapus(null);
+    setPesan(null);
+    setError(null);
+  };
+
+  const ubahJam = async (baris) => {
+    setSedangSimpanJam(baris.id);
+    setError(null);
+    setPesan(null);
+
+    try {
+      const response = await fetch(
+        `${API_URL}/api/rekap/${encodeURIComponent(baris.id)}/jam` +
+          `?pemohon=${encodeURIComponent(noWa)}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            clockIn: jamMasukBaru,
+            clockOut: jamPulangBaru,
+            alasan: alasanJam,
+          }),
+        },
+      );
+
+      const hasil = await response.json();
+
+      if (!response.ok) {
+        throw new Error(hasil.message || "Gagal mengubah jam.");
+      }
+
+      // Kartunya diperbarui setempat, bukan seluruh rekap dimuat
+      // ulang — petugas biasanya membetulkan beberapa baris
+      // berurutan. Jam yang tampil di kartu ikut berubah; angka
+      // Terlambat dan Menit Kerja tidak, karena keduanya hanya
+      // ada di berkas Excel dan dihitung backend saat dibaca.
+      setData((lama) =>
+        lama
+          ? {
+              ...lama,
+              data: lama.data.map((d) =>
+                d.id === baris.id
+                  ? {
+                      ...d,
+                      jamMasuk: hasil.absensi?.jamMasuk ?? d.jamMasuk,
+                      jamPulang: hasil.absensi?.jamPulang ?? d.jamPulang,
+                      perubahanJam:
+                        hasil.absensi?.perubahanJam || d.perubahanJam,
+                    }
+                  : d,
+              ),
+            }
+          : lama,
+      );
+
+      setPesan(hasil.message || "Jam absensi diubah.");
+      setEditJam(null);
+    } catch (err) {
+      console.error("Error ubah jam:", err);
+
+      setError(err.message);
+    } finally {
+      setSedangSimpanJam(null);
     }
   };
 
@@ -525,6 +631,133 @@ function Rekap({ keProfile }) {
               </div>
             )}
 
+            {baris.perubahanJam && (
+              <div className="mt-3 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
+                <p className="text-[10px] font-bold text-amber-700">
+                  Jam diubah petugas
+                </p>
+                <p className="text-[11px] text-amber-900 break-words">
+                  {baris.perubahanJam.dariMasuk !== baris.perubahanJam.keMasuk &&
+                    `Masuk ${baris.perubahanJam.dariMasuk || "(kosong)"} → ${
+                      baris.perubahanJam.keMasuk || "(kosong)"
+                    }. `}
+                  {baris.perubahanJam.dariPulang !==
+                    baris.perubahanJam.kePulang &&
+                    `Pulang ${baris.perubahanJam.dariPulang || "(kosong)"} → ${
+                      baris.perubahanJam.kePulang || "(kosong)"
+                    }. `}
+                  Oleh {baris.perubahanJam.oleh || "-"}
+                  {baris.perubahanJam.pada
+                    ? `, ${new Date(baris.perubahanJam.pada).toLocaleString(
+                        "id-ID",
+                        { dateStyle: "short", timeStyle: "short" },
+                      )}`
+                    : ""}
+                  {baris.perubahanJam.alasan
+                    ? ` — ${baris.perubahanJam.alasan}`
+                    : ""}
+                  {baris.perubahanJam.jumlah > 1
+                    ? ` (${baris.perubahanJam.jumlah}x diubah)`
+                    : ""}
+                </p>
+              </div>
+            )}
+
+            {/* ---------- UBAH JAM ---------- */}
+
+            {editJam === baris.id && (
+              <div className="mt-3 pt-3 border-t border-mist">
+                <p className="text-[11px] text-navy/70">
+                  Ubah jam <b>{baris.nama || baris.no_wa}</b> tanggal{" "}
+                  {baris.tanggal}.
+                </p>
+
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div>
+                    <p className="text-[10px] text-navy/60 mb-1">Jam masuk</p>
+                    <input
+                      type="time"
+                      value={jamMasukBaru}
+                      onChange={(e) => setJamMasukBaru(e.target.value)}
+                      disabled={sedangSimpanJam === baris.id}
+                      className="w-full border border-mist rounded-xl px-3 py-2 text-[13px] font-bold outline-none focus:border-brand disabled:opacity-60"
+                    />
+                  </div>
+
+                  <div>
+                    <p className="text-[10px] text-navy/60 mb-1">Jam pulang</p>
+                    <input
+                      type="time"
+                      value={jamPulangBaru}
+                      onChange={(e) => setJamPulangBaru(e.target.value)}
+                      disabled={sedangSimpanJam === baris.id}
+                      className="w-full border border-mist rounded-xl px-3 py-2 text-[13px] font-bold outline-none focus:border-brand disabled:opacity-60"
+                    />
+                  </div>
+                </div>
+
+                {/* Dampaknya disebut sebelum disimpan. Jam
+                    menggerakkan seluruh hitungan di rekap, dan
+                    tidak satu pun angka itu tampil di kartu ini —
+                    jadi tanpa keterangan ini perubahannya
+                    seolah tidak berakibat apa-apa. */}
+                {jamKeInput(baris.jamMasuk) !== jamMasukBaru && (
+                  <p className="mt-2 text-[10px] text-amber-700 leading-relaxed">
+                    Jam masuk berubah: Terlambat dan Jam Harus Checkout
+                    dihitung ulang — dan karena Lembur diukur dari Jam Harus
+                    Checkout, Lembur ikut berubah.
+                  </p>
+                )}
+
+                {jamKeInput(baris.jamPulang) !== jamPulangBaru && (
+                  <p className="mt-2 text-[10px] text-amber-700 leading-relaxed">
+                    {jamPulangBaru
+                      ? "Jam pulang berubah: Menit Kerja, Durasi Lembur, dan Pembulatan Lembur dihitung ulang."
+                      : "Jam pulang dikosongkan: baris ini kembali berstatus belum absen pulang, dan Menit Kerja serta Lembur menjadi kosong."}
+                  </p>
+                )}
+
+                <input
+                  type="text"
+                  value={alasanJam}
+                  onChange={(e) => setAlasanJam(e.target.value)}
+                  disabled={sedangSimpanJam === baris.id}
+                  placeholder="Catatan (opsional), mis. foto gagal diunggah"
+                  maxLength={300}
+                  className="mt-2 w-full border border-mist rounded-xl px-3 py-2 text-[12px] outline-none focus:border-brand disabled:opacity-60"
+                />
+
+                <p className="mt-1 text-[10px] text-navy/50 leading-relaxed">
+                  Foto, titik lokasi, dan kinerja harian tidak berubah — cap
+                  waktu di dalam foto juga tidak. Perubahan ini tercatat
+                  beserta nama petugas dan waktunya.
+                </p>
+
+                <div className="flex gap-2 mt-2">
+                  <button
+                    onClick={() => ubahJam(baris)}
+                    disabled={
+                      sedangSimpanJam === baris.id ||
+                      !jamMasukBaru ||
+                      (jamKeInput(baris.jamMasuk) === jamMasukBaru &&
+                        jamKeInput(baris.jamPulang) === jamPulangBaru)
+                    }
+                    className="flex-1 bg-brand text-white py-2 rounded-xl font-bold text-[12px] active:scale-[0.98] transition-all disabled:opacity-40"
+                  >
+                    {sedangSimpanJam === baris.id ? "Menyimpan..." : "Simpan"}
+                  </button>
+
+                  <button
+                    onClick={() => setEditJam(null)}
+                    disabled={sedangSimpanJam === baris.id}
+                    className="flex-1 border border-mist text-navy py-2 rounded-xl font-bold text-[12px] active:scale-[0.98] transition-all disabled:opacity-60"
+                  >
+                    Batal
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* ---------- UBAH STATUS ---------- */}
 
             {editStatus === baris.id && (
@@ -642,8 +875,16 @@ function Rekap({ keProfile }) {
                 </div>
               </div>
             ) : (
-              editStatus !== baris.id && (
-                <div className="mt-3 flex gap-4">
+              editStatus !== baris.id &&
+              editJam !== baris.id && (
+                <div className="mt-3 flex gap-4 flex-wrap">
+                  <button
+                    onClick={() => mulaiUbahJam(baris)}
+                    className="text-[11px] font-bold text-brand"
+                  >
+                    Ubah jam
+                  </button>
+
                   <button
                     onClick={() => mulaiUbahStatus(baris)}
                     className="text-[11px] font-bold text-brand"
@@ -655,6 +896,7 @@ function Rekap({ keProfile }) {
                     onClick={() => {
                       setKonfirmasiHapus(baris.id);
                       setEditStatus(null);
+                      setEditJam(null);
                       setPesan(null);
                       setError(null);
                     }}
