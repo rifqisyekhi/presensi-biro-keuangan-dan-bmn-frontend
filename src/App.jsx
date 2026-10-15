@@ -1,6 +1,5 @@
 import { useState } from "react";
 
-import Start from "./pages/Start";
 import Login from "./pages/Login";
 import Home from "./pages/Home";
 import Attendance from "./pages/Attendance";
@@ -8,6 +7,7 @@ import DailyPerformance from "./pages/DailyPerformance";
 import Riwayat from "./pages/History";
 import Profile from "./pages/Profile";
 import Rekap from "./pages/Rekap";
+import LogoutModal from "./components/LogoutModal";
 import { API_URL } from "./config";
 
 // =========================================================
@@ -44,32 +44,34 @@ function hapusSesi() {
 }
 
 function App() {
-  // Kalau sesinya masih ada, langsung ke Home. Tanpa ini
-  // pegawai dilempar ke halaman Login setiap kali halaman
-  // dimuat ulang, walaupun datanya masih tersimpan.
+  // Kalau sesinya masih ada, langsung ke Home. Kalau tidak, langsung ke Login.
   const [halamanAktif, setHalamanAktif] = useState(() =>
-    bacaSesi("userPhone") ? "home" : "start",
+    bacaSesi("userPhone") ? "home" : "login",
   );
 
   const [jenisKehadiran, setJenisKehadiran] = useState(null);
   const [attendanceData, setAttendanceData] = useState(null);
+
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   // =========================================================
   // LOGOUT
   // =========================================================
 
   const handleLogout = () => {
-    const yakin = window.confirm(
-      "Keluar dari akun ini? Absensi yang belum dikirim akan hilang.",
-    );
+    setShowLogoutModal(true);
+  };
 
-    if (!yakin) return;
-
+  const handleKonfirmasiLogout = () => {
     hapusSesi();
-
     setJenisKehadiran(null);
     setAttendanceData(null);
-    setHalamanAktif("start");
+    setShowLogoutModal(false);
+    setHalamanAktif("login");
+  };
+
+  const handleBatalLogout = () => {
+    setShowLogoutModal(false);
   };
 
   // =========================================================
@@ -254,20 +256,11 @@ function App() {
   return (
     <>
       {/* =====================================================
-          START
-      ===================================================== */}
-
-      {halamanAktif === "start" && (
-        <Start keLogin={() => setHalamanAktif("login")} />
-      )}
-
-      {/* =====================================================
           LOGIN
       ===================================================== */}
 
       {halamanAktif === "login" && (
         <Login
-          keStart={() => setHalamanAktif("start")}
           keHome={() => setHalamanAktif("home")}
           kePilihKehadiran={() => setHalamanAktif("home")}
         />
@@ -279,7 +272,6 @@ function App() {
 
       {halamanAktif === "home" && (
         <Home
-          keStart={() => setHalamanAktif("start")}
           keAttendance={(jenis) => {
             console.log("➡️ MASUK ATTENDANCE:", jenis);
 
@@ -288,6 +280,7 @@ function App() {
           }}
           keRiwayat={() => setHalamanAktif("riwayat")}
           keProfile={() => setHalamanAktif("profile")}
+          keRekap={() => setHalamanAktif("rekap")}
           keLogout={handleLogout}
         />
       )}
@@ -301,6 +294,8 @@ function App() {
           keHome={() => setHalamanAktif("home")}
           keRiwayat={() => setHalamanAktif("riwayat")}
           keProfile={() => setHalamanAktif("profile")}
+          keRekap={() => setHalamanAktif("rekap")}
+          keLogout={handleLogout}
         />
       )}
 
@@ -365,6 +360,15 @@ function App() {
           onSubmitKinerja={handleSubmitKinerja}
         />
       )}
+
+      {/* =====================================================
+          MODAL KONFIRMASI LOGOUT
+      ===================================================== */}
+      <LogoutModal
+        isOpen={showLogoutModal}
+        onBatal={handleBatalLogout}
+        onKonfirmasi={handleKonfirmasiLogout}
+      />
     </>
   );
 }

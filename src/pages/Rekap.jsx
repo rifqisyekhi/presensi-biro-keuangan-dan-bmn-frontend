@@ -30,7 +30,7 @@ import { API_URL, urlFoto } from "../config";
 
 const JENIS_KEHADIRAN = [
   { nilai: "WFO", label: "WFO" },
-  { nilai: "WFH", label: "WFH (Dari Rumah)" },
+  { nilai: "WFH", label: "WFH" },
   { nilai: "DINAS", label: "Dinas Luar" },
 ];
 
@@ -393,41 +393,43 @@ function Rekap({ keProfile }) {
   return (
     <div className="min-h-screen w-full bg-slate-50/60 font-sans text-navy pb-16">
       {/* =====================================================
-          HEADER ATAS
+          HEADER ATAS (RESPONSIF MOBILE & DESKTOP)
       ===================================================== */}
       <header className="bg-white border-b border-mist/80 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-2.5 sm:py-3.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
             <button
               onClick={keProfile}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-mist hover:bg-slate-50 text-xs font-semibold text-navy transition-all active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1 sm:gap-1.5 px-2.5 sm:px-3 py-1.5 rounded-lg border border-mist hover:bg-slate-50 text-xs font-semibold text-navy transition-all active:scale-95 cursor-pointer shrink-0"
+              title="Kembali ke Profil"
             >
               <ArrowLeft className="w-4 h-4 text-brand" />
-              <span>Kembali</span>
+              <span className="hidden sm:inline">Kembali</span>
             </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base sm:text-lg font-bold text-navy leading-tight">
-                  Rekap Absensi Pegawai
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h1 className="text-sm sm:text-lg font-bold text-navy leading-tight truncate">
+                  Rekap Absensi
                 </h1>
-                <span className="bg-brand/10 text-brand text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">
+                <span className="bg-brand/10 text-brand text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full uppercase tracking-wider shrink-0">
                   Petugas
                 </span>
               </div>
-              <p className="text-[11px] text-slate-500 hidden sm:block">
+              <p className="text-[11px] text-slate-500 hidden md:block">
                 Biro Keuangan dan BMN • Monitor kehadiran, jam kerja, dan foto geotag
               </p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             <a
               href={urlExport}
-              className="inline-flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all active:scale-95 cursor-pointer"
+              className="inline-flex items-center gap-1.5 sm:gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all active:scale-95 cursor-pointer"
               title="Unduh berkas spreadsheet Excel (.xlsx)"
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Unduh Excel</span>
+              <FileSpreadsheet className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline">Unduh Excel</span>
+              <span className="inline sm:hidden">Excel</span>
             </a>
           </div>
         </div>
@@ -615,7 +617,7 @@ function Rekap({ keProfile }) {
               >
                 <option value="">Semua Status</option>
                 <option value="WFO">WFO</option>
-                <option value="WFH">WFH (Dari Rumah)</option>
+                <option value="WFH">WFH</option>
                 <option value="DINAS">Dinas Luar</option>
               </select>
             </div>
@@ -759,10 +761,10 @@ function Rekap({ keProfile }) {
                           <span
                             className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
                               baris.attendanceType === "WFO"
-                                ? "bg-blue-100 text-blue-700"
+                                ? "bg-teal/15 text-teal"
                                 : baris.attendanceType === "WFH"
-                                ? "bg-purple-100 text-purple-700"
-                                : "bg-emerald-100 text-emerald-700"
+                                ? "bg-orange-light/25 text-navy"
+                                : "bg-green/25 text-navy"
                             }`}
                           >
                             {baris.jenis || baris.attendanceType || "-"}
@@ -935,10 +937,10 @@ function Rekap({ keProfile }) {
                     <span
                       className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${
                         baris.attendanceType === "WFO"
-                          ? "bg-blue-100 text-blue-700"
+                          ? "bg-teal/15 text-teal"
                           : baris.attendanceType === "WFH"
-                          ? "bg-purple-100 text-purple-700"
-                          : "bg-emerald-100 text-emerald-700"
+                          ? "bg-orange-light/25 text-navy"
+                          : "bg-green/25 text-navy"
                       }`}
                     >
                       {baris.jenis || baris.attendanceType}

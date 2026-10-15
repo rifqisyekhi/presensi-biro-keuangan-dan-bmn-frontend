@@ -1,26 +1,61 @@
 @import "tailwindcss";
 
 /* =========================================================
-   PALET WARNA
+   PALET WARNA BARU
    =========================================================
-   Empat warna ini dipakai di seluruh aplikasi. Mengubah
-   nilainya di sini akan mengubah seluruh tampilan, jadi
-   jangan menulis kode hex langsung di komponen.
-
-   navy   #13416B  teks, judul, aksen gelap
-   brand  #3F72AF  warna utama, tombol, elemen aktif
-   mist   #DBE2EF  garis, latar lembut, elemen nonaktif
-   paper  #F9F7F7  latar halaman
+   1. Primary Colors:
+      - Dark Blue (Navy): #123B5D
+      - Medium Blue (Brand): #3473A7
+      - Off-White / Greyish White (Paper): #F6F6F6
+   2. Secondary & Accent Colors:
+      - Yellow: #FFD52E
+      - Light Orange: #FFCD5F
+      - Green: #9BC264
+      - Teal: #00BFA6
+      - White: #FFFFFF
    ========================================================= */
 
 @theme {
-  --color-navy: #13416B;
-  --color-brand: #3F72AF;
-  --color-mist: #DBE2EF;
-  --color-paper: #F9F7F7;
+  /* 1. Primary Colors */
+  --color-navy: #123B5D;
+  --color-brand: #3473A7;
+  --color-paper: #F6F6F6;
+  --color-mist: #E5E9EE;
+  --color-primary: #3473A7;
+  --color-greyish: #F6F6F6;
+  --color-offwhite: #F6F6F6;
+
+  /* 2. Secondary & Accent Colors */
+  --color-yellow: #FFD52E;
+  --color-orange-light: #FFCD5F;
+  --color-green: #9BC264;
+  --color-teal: #00BFA6;
+  --color-white: #FFFFFF;
+
+  /* Aliases */
+  --color-accent-yellow: #FFD52E;
+  --color-accent-orange: #FFCD5F;
+  --color-accent-green: #9BC264;
+  --color-accent-teal: #00BFA6;
 }
 
 /* Pengaturan font global */
 body {
   font-family: "Poppins", sans-serif;
+}
+
+/* Custom scrollbar utility */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(18, 59, 93, 0.15);
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: rgba(18, 59, 93, 0.3);
 }

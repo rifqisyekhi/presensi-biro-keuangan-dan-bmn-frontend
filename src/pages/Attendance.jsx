@@ -80,7 +80,7 @@ function gambarPenanda(ctx, x, y, ukuran) {
   ctx.beginPath();
   ctx.arc(x, y, radius, 0, Math.PI * 2);
 
-  ctx.fillStyle = "#13416B";
+  ctx.fillStyle = "#123B5D";
   ctx.fill();
 
   ctx.lineWidth = Math.max(2, radius * 0.35);

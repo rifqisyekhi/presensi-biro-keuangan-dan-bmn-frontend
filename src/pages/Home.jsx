@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import BottomNav from "../components/BottomNav";
+import logoKemnaker from "../assets/logo-kemnaker.png";
 
 import { API_URL, FORM_CUTI_URL, NOMOR_BOT_SISKA } from "../config";
 
@@ -71,21 +72,17 @@ const LINK_BOT = `https://wa.me/${NOMOR_BOT_SISKA}?text=menu`;
 
 function KartuLembur({ lembur }) {
   let isi;
-  let tombol = { teks: "AJUKAN LEWAT WA", link: LINK_BOT };
+  let tombol = { teks: "Ajukan via WhatsApp", link: LINK_BOT };
 
   if (!lembur) {
-    isi = "Diajukan lewat WhatsApp SisKA, lalu disetujui atasan.";
+    isi = "Pengajuan lembur diajukan lewat WhatsApp SisKA dan disetujui atasan.";
   } else if (!lembur.sudahMasuk) {
-    isi = "Absen masuk dulu. Jam mulai lembur dihitung dari jam masuk Anda.";
+    isi = "Absen masuk terlebih dahulu untuk memulai perhitungan jam lembur.";
     tombol = null;
   } else if (lembur.dinasLuar) {
-    isi = "Lembur tidak berlaku untuk Dinas Luar.";
+    isi = "Lembur tidak berlaku untuk kehadiran Dinas Luar.";
     tombol = null;
   } else if (!lembur.jamMulai) {
-    // Jam harus pulang kosong padahal sudah absen masuk dan bukan
-    // dinas luar: jabatannya memang mengikuti jadwal tugas (supir).
-    // Tanpa cabang ini kartunya menulis "Mulai  (jam pulang Anda)"
-    // dengan jam kosong.
     isi = "Lembur tidak berlaku untuk jabatan Anda — jam kerja mengikuti jadwal tugas.";
     tombol = null;
   } else if (lembur.disetujui && lembur.sudahPulang) {
@@ -101,45 +98,42 @@ function KartuLembur({ lembur }) {
     );
     tombol = null;
   } else if (lembur.disetujui) {
-    // Absen pulang lewat web tidak diketahui bot, jadi bot tidak
-    // akan meminta 3 foto bukti lemburnya. Diarahkan ke WA.
     isi = (
       <>
-        ✅ Disetujui. Mulai {lembur.jamMulai}, selesai saat absen pulang.
+        ✅ Lembur disetujui (mulai {lembur.jamMulai}).
         <br />
-        Absen pulang lewat WA agar bot meminta foto bukti.
+        Silakan absen pulang lewat WA agar foto bukti terkirim.
       </>
     );
-    tombol = { teks: "PULANG LEWAT WA", link: LINK_BOT };
+    tombol = { teks: "Pulang Lewat WhatsApp", link: LINK_BOT };
   } else if (lembur.sudahPulang) {
     isi = `Sudah absen pulang ${lembur.jamSelesai}, tanpa persetujuan lembur.`;
   } else {
     isi = (
       <>
-        Mulai <b>{lembur.jamMulai}</b> (jam pulang Anda). Belum disetujui
-        atasan.
-        <br />
-        Di WA: ketik <b>9</b> lalu <b>2</b>.
+        Pengajuan lembur dimulai pukul <b>{lembur.jamMulai || "jam pulang"}</b>. Menunggu persetujuan atasan.
       </>
     );
   }
 
   const kelas =
-    "relative overflow-hidden text-left rounded-[22px] bg-brand text-white p-4 min-h-[175px] flex flex-col shadow-sm";
+    "h-full w-full relative overflow-hidden text-left rounded-[22px] md:rounded-3xl bg-white text-navy p-5 min-h-[185px] flex flex-col justify-between border border-mist shadow-xs";
 
   const isiKartu = (
     <>
-      <h2 className="text-lg font-bold relative">Lembur</h2>
+      <div className="flex items-center justify-between">
+        <h3 className="text-base font-bold text-navy">Lembur</h3>
+        <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full">
+          WhatsApp
+        </span>
+      </div>
 
-      {/* mb-3: tanpa jarak ini tombol menempel ke teks saat
-          isinya panjang, karena mt-auto hanya mendorong ke
-          bawah selama masih ada ruang sisa. */}
-      <p className="text-xs leading-relaxed mt-2 mb-3 text-white/90 relative">
+      <p className="text-xs leading-relaxed my-2.5 text-slate-600">
         {isi}
       </p>
 
       {tombol && (
-        <span className="mt-auto bg-white text-brand rounded-full py-2 px-1 text-center text-[11px] font-bold">
+        <span className="mt-auto bg-brand hover:bg-brand/90 text-white rounded-xl py-2 px-3 text-center text-xs font-bold transition-colors shadow-2xs flex items-center justify-center gap-1.5">
           {tombol.teks}
         </span>
       )}
@@ -151,7 +145,7 @@ function KartuLembur({ lembur }) {
       href={tombol.link}
       target="_blank"
       rel="noopener noreferrer"
-      className={`${kelas} active:scale-[0.98] transition-all`}
+      className={`${kelas} active:scale-[0.98] transition-all hover:border-brand/40`}
     >
       {isiKartu}
     </a>
@@ -160,7 +154,7 @@ function KartuLembur({ lembur }) {
   );
 }
 
-function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
+function Home({ keAttendance, keRiwayat, keProfile, keRekap, keLogout }) {
   const [user, setUser] = useState(null);
 
   const [attendance, setAttendance] = useState({
@@ -172,9 +166,28 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
   // Keadaan lembur hari ini, dibaca dari absensi yang sama.
   // null = absensi hari ini belum terbaca dari server.
   const [lembur, setLembur] = useState(null);
+  const [petugas, setPetugas] = useState(false);
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  useEffect(() => {
+    const cekPetugas = async () => {
+      try {
+        const noWa = localStorage.getItem("userPhone");
+        if (!noWa) return;
+        const response = await fetch(
+          `${API_URL}/api/rekap/izin?pemohon=${encodeURIComponent(noWa)}`
+        );
+        if (!response.ok) return;
+        const hasil = await response.json();
+        setPetugas(Boolean(hasil.petugas));
+      } catch {
+        // Abaikan jika gagal
+      }
+    };
+    cekPetugas();
+  }, []);
 
   // Jam pada kartu "Hari ini" harus ikut berjalan, bukan
   // berhenti di waktu halaman dibuka.
@@ -414,22 +427,80 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
   // =========================================================
 
   return (
-    <div className="min-h-screen w-full max-w-[430px] mx-auto bg-paper font-sans text-navy relative overflow-x-hidden">
-      {/* HEADER */}
+    <div className="min-h-screen w-full bg-paper font-sans text-navy flex flex-col">
+      {/* =====================================================
+          1. DESKTOP NAVBAR (md:block hidden)
+      ===================================================== */}
+      <header className="hidden md:block bg-white border-b border-mist/80 sticky top-0 z-40 shadow-xs">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-paper p-1.5 border border-mist flex items-center justify-center shadow-xs shrink-0">
+              <img
+                src={logoKemnaker}
+                alt="Logo Kemnaker"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-navy leading-tight">Presensi Non-ASN</h1>
+              <p className="text-[11px] text-slate-500">Biro Keuangan dan BMN</p>
+            </div>
+          </div>
 
-      <header className="bg-white px-6 pt-8 pb-3">
+          <nav className="flex items-center gap-1.5 text-xs font-semibold">
+            <button
+              onClick={() => {}}
+              className="px-3.5 py-2 rounded-xl bg-brand text-white font-bold shadow-xs cursor-pointer"
+            >
+              Beranda
+            </button>
+            <button
+              onClick={keRiwayat}
+              className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              Riwayat
+            </button>
+            <button
+              onClick={keProfile}
+              className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              Profil Saya
+            </button>
+            {petugas && (
+              <button
+                onClick={keRekap}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Rekap Absensi</span>
+                <span className="bg-brand/10 text-brand text-[10px] font-bold px-1.5 py-0.2 rounded-sm uppercase">Petugas</span>
+              </button>
+            )}
+            <div className="w-px h-5 bg-mist mx-1" />
+            <button
+              onClick={keLogout}
+              className="px-3.5 py-2 rounded-xl text-red-600 hover:bg-red-50 transition-all cursor-pointer font-bold"
+            >
+              Keluar
+            </button>
+          </nav>
+        </div>
+      </header>
+
+      {/* =====================================================
+          2. MOBILE TOP HEADER (block md:hidden)
+      ===================================================== */}
+      <header className="block md:hidden bg-white px-6 pt-7 pb-3 border-b border-mist/40">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-sm text-navy/60">Selamat datang,</p>
-
-            <h1 className="text-xl font-bold text-navy">
+            <p className="text-xs text-navy/60 font-medium">Selamat datang,</p>
+            <h1 className="text-lg font-bold text-navy truncate max-w-[280px]">
               {user?.nama || "Pegawai"}
             </h1>
           </div>
 
-          <button className="w-10 h-10 rounded-full bg-mist flex items-center justify-center">
+          <button onClick={keProfile} className="w-10 h-10 rounded-full bg-mist flex items-center justify-center cursor-pointer">
             <svg
-              className="w-6 h-6 text-brand"
+              className="w-5 h-5 text-brand"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -445,260 +516,307 @@ function Home({ keAttendance, keRiwayat, keProfile, keLogout }) {
         </div>
       </header>
 
-      {/* PROFILE */}
+      {/* =====================================================
+          3. MAIN CONTENT CONTAINER (Grid Sejajar & Sebaris)
+      ===================================================== */}
+      <main className="w-full max-w-[430px] md:max-w-6xl mx-auto px-4 sm:px-5 md:px-8 py-4 md:py-8 flex-1 pb-24 md:pb-8">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-5 items-stretch">
+          
+          {/* ===================================================
+              BARIS 1: IDENTITAS PEGAWAI (Kiri) & KARTU LEMBUR (Kanan)
+          =================================================== */}
+          
+          {/* BARIS 1 KIRI: PROFILE BANNER */}
+          <div className="order-1 md:order-1 md:col-span-7 lg:col-span-8 h-full">
+            <div className="relative overflow-hidden rounded-[22px] md:rounded-3xl bg-brand p-5 sm:p-6 text-white shadow-md h-full flex flex-col justify-between">
+              <div className="absolute -right-10 -top-12 w-36 h-36 rounded-full bg-white/10 pointer-events-none" />
+              
+              <div className="relative flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h2 className="font-bold text-lg md:text-xl truncate">
+                    {user?.nama || "Pengguna"}
+                  </h2>
+                  <p className="text-xs md:text-sm text-mist/90 mt-0.5 truncate font-mono">
+                    {user?.nip || "-"} {" • "} {user?.jabatan || "-"}
+                  </p>
+                </div>
 
-      <section className="px-5">
-        <div className="relative overflow-hidden rounded-[20px] bg-brand px-4 py-3 text-white shadow-lg">
-          <div className="absolute -right-8 -top-10 w-28 h-28 rounded-full bg-white/10" />
+                <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 border border-white/30 backdrop-blur-xs">
+                  <span className={`w-2 h-2 rounded-full ${
+                    attendance.status === "Selesai" ? "bg-green" : attendance.clockIn ? "bg-yellow" : "bg-mist"
+                  }`} />
+                  <span className="text-xs font-semibold">{attendance.status}</span>
+                </div>
+              </div>
 
-          <div className="relative flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h2 className="font-bold text-base truncate">
-                {user?.nama || "Pengguna"}
-              </h2>
-
-              <p className="text-xs text-mist mt-0.5 truncate">
-                {user?.nip || "-"}
-                {" \u2022 "}
-                {user?.jabatan || "-"}
-              </p>
-            </div>
-
-            <div className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 border border-white/30">
-              <span className="w-2 h-2 rounded-full bg-mist" />
-
-              <span className="text-xs font-semibold">{attendance.status}</span>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* TODAY */}
-
-      <section className="px-5 mt-3">
-        <div className="bg-white rounded-[24px] p-4 shadow-sm border border-mist">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-xs text-navy/60">Hari ini</p>
-
-              <h2 className="font-bold text-navy mt-1">
-                {sekarang.toLocaleDateString("id-ID", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                  year: "numeric",
-                })}
-              </h2>
-            </div>
-
-            <div className="text-right">
-              <p className="text-xs text-navy/60">Jam</p>
-
-              <p className="font-bold text-brand">
-                {sekarang.toLocaleTimeString("id-ID", {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                  hour12: false,
-                })}
-              </p>
+              {user?.sub_unit && (
+                <div className="relative mt-3 pt-2.5 border-t border-white/15">
+                  <p className="text-[11px] md:text-xs text-white/80 font-medium">
+                    Unit Kerja: {user?.sub_unit}
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mt-4">
-            <div className="bg-mist rounded-2xl p-3">
-              <p className="text-xs text-navy/60">Jam Masuk</p>
+          {/* BARIS 1 KANAN: KARTU LEMBUR */}
+          <div className="order-4 md:order-2 md:col-span-5 lg:col-span-4 h-full">
+            <KartuLembur lembur={lembur} />
+          </div>
 
-              <p className="font-bold text-navy mt-1">
-                {attendance.clockIn || "--:--"}
-              </p>
-            </div>
+          {/* ===================================================
+              BARIS 2: REAL-TIME CLOCK (Kiri) & KARTU CUTI (Kanan)
+          =================================================== */}
 
-            <div className="bg-mist rounded-2xl p-3">
-              <p className="text-xs text-navy/60">Jam Keluar</p>
+          {/* BARIS 2 KIRI: REAL-TIME CLOCK & STATUS KEHADIRAN */}
+          <div className="order-2 md:order-3 md:col-span-7 lg:col-span-8 h-full">
+            <div className="bg-white rounded-[22px] md:rounded-3xl p-5 shadow-xs border border-mist h-full flex flex-col justify-between">
+              <div className="flex items-center justify-between pb-3.5 border-b border-mist/70">
+                <div>
+                  <p className="text-[11px] text-slate-500 font-semibold">Hari ini</p>
+                  <h3 className="font-bold text-navy text-sm sm:text-base mt-0.5">
+                    {sekarang.toLocaleDateString("id-ID", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] text-slate-500 font-semibold">Jam Digital</p>
+                  <p className="font-extrabold text-brand text-lg sm:text-2xl tracking-tight">
+                    {sekarang.toLocaleTimeString("id-ID", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: false,
+                    })}
+                  </p>
+                </div>
+              </div>
 
-              <p className="font-bold text-navy mt-1">
-                {attendance.clockOut || "--:--"}
-              </p>
+              <div className="grid grid-cols-2 gap-3 mt-3.5">
+                <div className="bg-paper p-3.5 rounded-2xl border border-mist/70 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold text-slate-500">Jam Masuk</p>
+                    <p className="font-extrabold text-navy text-base sm:text-xl mt-0.5">
+                      {attendance.clockIn ? `${attendance.clockIn} WIB` : "--:--"}
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                    {attendance.clockIn ? "Tercatat" : "Belum absen"}
+                  </p>
+                </div>
+                <div className="bg-paper p-3.5 rounded-2xl border border-mist/70 flex flex-col justify-between">
+                  <div>
+                    <p className="text-[11px] font-semibold text-slate-500">Jam Keluar</p>
+                    <p className="font-extrabold text-navy text-base sm:text-xl mt-0.5">
+                      {attendance.clockOut ? `${attendance.clockOut} WIB` : "--:--"}
+                    </p>
+                  </div>
+                  <p className="text-[10px] text-slate-400 mt-1 font-medium">
+                    {attendance.clockOut ? "Tercatat" : "Belum absen"}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
 
-      {/* ===================================================
-          SUDAH ABSEN MASUK — TINGGAL PULANG
-
-          Dulu bagian ini selalu menampilkan "Mulai Absensi" dengan
-          tiga tombol jenis kehadiran, apa pun keadaannya. Pegawai yang
-          sudah absen masuk — apalagi lewat WhatsApp, sehingga browser
-          ini tidak punya jejaknya — melihat layar yang sama persis
-          seperti belum absen, dan harus menebak sendiri bahwa jalan ke
-          absen pulang adalah menekan jenis yang SAMA dengan absen
-          masuknya. Salah pilih, tombol di halaman berikutnya justru
-          mati karena dianggap tidak cocok.
-      =================================================== */}
-
-      {attendance.clockIn && !attendance.clockOut ? (
-        <section className="px-5 mt-4">
-          <h2 className="font-bold text-navy text-base">Absen Pulang</h2>
-
-          <p className="text-xs text-navy/60 mt-0.5 mb-3">
-            Anda absen masuk pukul {attendance.clockIn} WIB
-            {attendance.jenis ? ` (${LABEL_JENIS[attendance.jenis] || attendance.jenis})` : ""}
-          </p>
-
-          <button
-            onClick={() => {
-              if (!user?.no_wa) {
-                alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
-                return;
-              }
-
-              // Jenis kehadiran diambil dari absen masuknya, bukan
-              // dipilih ulang — itulah yang membuat tombol ini tidak
-              // bisa salah.
-              keAttendance(attendance.jenis || "WFO");
-            }}
-            className="w-full bg-brand text-white py-3.5 rounded-2xl font-bold shadow-sm active:scale-[0.98] transition-all"
-          >
-            ABSEN PULANG
-          </button>
-        </section>
-      ) : attendance.clockOut ? (
-        <section className="px-5 mt-4">
-          <div className="bg-white rounded-[18px] p-4 border border-mist text-center">
-            <p className="font-bold text-navy text-sm">
-              ✅ Absensi hari ini sudah lengkap
-            </p>
-
-            <p className="text-xs text-navy/60 mt-1">
-              Masuk {attendance.clockIn} · Pulang {attendance.clockOut}
-            </p>
+          {/* BARIS 2 KANAN: KARTU CUTI */}
+          <div className="order-5 md:order-4 md:col-span-5 lg:col-span-4 h-full">
+            <a
+              href={FORM_CUTI_URL}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="h-full w-full relative overflow-hidden text-left rounded-[22px] md:rounded-3xl bg-white text-navy p-5 flex flex-col justify-between border border-mist shadow-xs hover:border-brand/40 active:scale-[0.98] transition-all"
+            >
+              <div>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-base font-bold text-navy">Cuti</h3>
+                  <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full">
+                    Formulir
+                  </span>
+                </div>
+                <p className="text-xs leading-relaxed my-2.5 text-slate-600">
+                  Ajukan permohonan cuti resmi melalui formulir online. Formulir akan dibuka di tab baru.
+                </p>
+              </div>
+              <span className="mt-4 bg-brand hover:bg-brand/90 text-white rounded-xl py-2.5 px-3 text-center text-xs font-bold transition-colors shadow-2xs flex items-center justify-center gap-1.5">
+                Ajukan Cuti
+              </span>
+            </a>
           </div>
-        </section>
-      ) : (
-      <section className="px-5 mt-4">
-        <div className="flex items-center justify-between mb-2">
-          <div>
-            <h2 className="font-bold text-navy text-base">Mulai Absensi</h2>
 
-            <p className="text-xs text-navy/60 mt-0.5">
-              Pilih lokasi kerja hari ini
-            </p>
+          {/* ===================================================
+              BARIS 3: TINDAKAN PRESENSI (Kiri) & JADWAL & BANTUAN (Kanan)
+          =================================================== */}
+
+          {/* BARIS 3 KIRI: ACTIONS: MULAI ABSENSI / ABSEN PULANG */}
+          <div className="order-3 md:order-5 md:col-span-7 lg:col-span-8 h-full">
+            {attendance.clockIn && !attendance.clockOut ? (
+              <div className="bg-white rounded-[22px] md:rounded-3xl p-5 sm:p-6 shadow-xs border border-mist h-full flex flex-col justify-between">
+                <div className="mb-4">
+                  <h3 className="font-bold text-navy text-base sm:text-lg">Absen Pulang</h3>
+                  <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                    Anda masuk pukul <strong>{attendance.clockIn} WIB</strong>
+                    {attendance.jenis ? ` · ${LABEL_JENIS[attendance.jenis] || attendance.jenis}` : ""}
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (!user?.no_wa) {
+                      alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
+                      return;
+                    }
+                    keAttendance(attendance.jenis || "WFO");
+                  }}
+                  className="w-full bg-brand hover:bg-brand/90 text-white py-3.5 sm:py-4 rounded-2xl font-bold shadow-md hover:shadow-lg transition-all active:scale-[0.99] cursor-pointer text-sm sm:text-base tracking-wide flex items-center justify-center gap-2"
+                >
+                  <span>ABSEN PULANG SEKARANG</span>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </button>
+              </div>
+            ) : attendance.clockOut ? (
+              <div className="bg-white rounded-[22px] md:rounded-3xl p-5 sm:p-6 border border-mist shadow-xs text-center h-full flex flex-col justify-center items-center">
+                <div className="w-12 h-12 rounded-2xl bg-green/20 text-navy mx-auto flex items-center justify-center text-xl mb-2">
+                  ✅
+                </div>
+                <h3 className="font-bold text-navy text-base">Absensi Hari Ini Sudah Lengkap</h3>
+                <p className="text-xs text-slate-500 mt-1">
+                  Masuk pukul <strong>{attendance.clockIn}</strong> · Pulang pukul <strong>{attendance.clockOut}</strong>
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-[22px] md:rounded-3xl p-5 sm:p-6 shadow-xs border border-mist h-full flex flex-col justify-between">
+                <div className="mb-3.5">
+                  <h3 className="font-bold text-navy text-base">Mulai Absensi</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">
+                    Pilih lokasi penugasan Anda hari ini:
+                  </p>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2.5 sm:gap-3.5">
+                  {/* WFO */}
+                  <button
+                    onClick={() => {
+                      if (!user?.no_wa) {
+                        alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
+                        return;
+                      }
+                      keAttendance("WFO");
+                    }}
+                    className="group flex flex-col items-center text-center bg-paper hover:bg-white rounded-2xl p-3 sm:p-4 border border-mist/80 hover:border-teal/50 shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-teal/15 flex items-center justify-center text-lg sm:text-xl group-hover:scale-105 transition-transform">
+                      🏢
+                    </div>
+                    <p className="font-bold text-xs sm:text-sm mt-2 text-navy">WFO</p>
+                    <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 leading-tight">Di Kantor</p>
+                  </button>
+
+                  {/* WFH */}
+                  <button
+                    onClick={() => {
+                      if (!user?.no_wa) {
+                        alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
+                        return;
+                      }
+                      keAttendance("WFH");
+                    }}
+                    className="group flex flex-col items-center text-center bg-paper hover:bg-white rounded-2xl p-3 sm:p-4 border border-mist/80 hover:border-orange-light shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-orange-light/25 flex items-center justify-center text-lg sm:text-xl group-hover:scale-105 transition-transform">
+                      🏠
+                    </div>
+                    <p className="font-bold text-xs sm:text-sm mt-2 text-navy">WFH</p>
+                    <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 leading-tight">Work From Home</p>
+                  </button>
+
+                  {/* DINAS */}
+                  <button
+                    onClick={() => {
+                      if (!user?.no_wa) {
+                        alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
+                        return;
+                      }
+                      keAttendance("DINAS");
+                    }}
+                    className="group flex flex-col items-center text-center bg-paper hover:bg-white rounded-2xl p-3 sm:p-4 border border-mist/80 hover:border-green shadow-2xs hover:shadow-xs transition-all active:scale-95 cursor-pointer"
+                  >
+                    <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-2xl bg-green/20 flex items-center justify-center text-lg sm:text-xl group-hover:scale-105 transition-transform">
+                      🚗
+                    </div>
+                    <p className="font-bold text-xs sm:text-sm mt-2 text-navy">Dinas</p>
+                    <p className="text-[10px] sm:text-[11px] text-slate-500 mt-0.5 leading-tight">Luar Kantor</p>
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
-        </div>
 
-        <div className="grid grid-cols-3 gap-3">
-          {/* TOMBOL WFO */}
-          <button
-            onClick={() => {
-              console.log("➡️ Masuk Attendance WFO");
+          {/* BARIS 3 KANAN: JADWAL JAM KERJA & BANTUAN */}
+          <div className="order-6 md:order-6 md:col-span-5 lg:col-span-4 h-full">
+            <div className="bg-white rounded-[22px] md:rounded-3xl p-5 border border-mist shadow-xs h-full flex flex-col justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-sm">🕒</span>
+                  <h4 className="font-bold text-navy text-xs sm:text-sm">Jadwal Jam Kerja</h4>
+                </div>
+                <div className="space-y-1.5 text-xs text-slate-600 pl-6">
+                  <div className="flex items-center justify-between">
+                    <span>Senin–Kamis:</span>
+                    <strong className="text-navy font-semibold">07.30 – 16.00 WIB</strong>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>Jumat:</span>
+                    <strong className="text-navy font-semibold">07.30 – 16.30 WIB</strong>
+                  </div>
+                </div>
+              </div>
 
-              if (!user?.no_wa) {
-                alert(
-                  "Data nomor WhatsApp belum tersedia. Silakan login kembali.",
-                );
-                return;
-              }
+              <div className="w-full h-px bg-mist/80 my-3" />
 
-              keAttendance("WFO");
-            }}
-            className="group flex flex-col items-center text-center bg-white rounded-[18px] p-3 shadow-sm border border-mist active:scale-95 transition-all"
-          >
-            <div className="w-10 h-10 rounded-xl bg-mist flex items-center justify-center text-navy">
-              <span className="text-lg">🏢</span>
+              <div className="flex items-center justify-between gap-3 text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="text-sm">💬</span>
+                  <p className="text-slate-600 truncate">
+                    Butuh bantuan?
+                  </p>
+                </div>
+                <a
+                  href={`https://wa.me/${NOMOR_BOT_SISKA}?text=menu`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-bold text-brand hover:underline shrink-0 text-xs inline-flex items-center gap-1"
+                >
+                  <span>Chatbot SisKA</span>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
             </div>
+          </div>
 
-            <p className="font-bold text-sm mt-2">WFO</p>
-
-            <p className="text-[11px] text-navy/60 mt-1">Bekerja di Kantor</p>
-          </button>
-
-          {/* TOMBOL WFH */}
-          <button
-            onClick={() => {
-              console.log("➡️ Masuk Attendance WFH");
-
-              if (!user?.no_wa) {
-                alert(
-                  "Data nomor WhatsApp belum tersedia. Silakan login kembali.",
-                );
-                return;
-              }
-
-              keAttendance("WFH");
-            }}
-            className="group flex flex-col items-center text-center bg-white rounded-[18px] p-3 shadow-sm border border-mist active:scale-95 transition-all"
-          >
-            <div className="w-10 h-10 rounded-xl bg-mist flex items-center justify-center text-navy">
-              <span className="text-lg">🏠</span>
-            </div>
-
-            <p className="font-bold text-sm mt-2">WFH</p>
-
-            <p className="text-[11px] text-navy/60 mt-1">Bekerja dari Rumah</p>
-          </button>
-
-          {/* TOMBOL DINAS */}
-          <button
-            onClick={() => {
-              console.log("➡️ Masuk Attendance DINAS");
-
-              if (!user?.no_wa) {
-                alert(
-                  "Data nomor WhatsApp belum tersedia. Silakan login kembali.",
-                );
-                return;
-              }
-
-              keAttendance("DINAS");
-            }}
-            className="group flex flex-col items-center text-center bg-white rounded-[18px] p-3 shadow-sm border border-mist active:scale-95 transition-all"
-          >
-            <div className="w-10 h-10 rounded-xl bg-mist flex items-center justify-center text-navy">
-              <span className="text-lg">🚗</span>
-            </div>
-
-            <p className="font-bold text-sm mt-2">Dinas Luar</p>
-
-            <p className="text-[11px] text-navy/60 mt-1">Tugas di Luar Kantor</p>
-          </button>
         </div>
-      </section>
-      )}
+      </main>
 
-      {/* FEATURE */}
-
-      <section className="px-5 mt-4 pb-24">
-        <div className="grid grid-cols-2 gap-4">
-          <KartuLembur lembur={lembur} />
-
-          {/* Sama dengan menu 9 → 3 di bot: cuti diajukan lewat
-              formulir, jadi kartu ini cukup membukanya. */}
-          <a
-            href={FORM_CUTI_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="relative overflow-hidden text-left rounded-[22px] bg-navy text-white p-4 min-h-[175px] flex flex-col shadow-sm active:scale-[0.98] transition-all"
-          >
-            <h2 className="text-lg font-bold relative">Cuti</h2>
-
-            <p className="text-xs leading-relaxed mt-2 text-white/90 relative">
-              Isi formulir pengajuan cuti. Formulirnya terbuka di tab baru.
-            </p>
-
-            <span className="mt-auto bg-white text-navy rounded-full py-2 text-center text-xs font-bold">
-              AJUKAN CUTI
-            </span>
-          </a>
-        </div>
-      </section>
-
-      <BottomNav
-        activeNav="attendance"
-        keHome={() => {}}
-        keRiwayat={keRiwayat}
-        keProfile={keProfile}
-      />
+      {/* =====================================================
+          4. BOTTOM NAVIGATION (MOBILE ONLY: block md:hidden)
+      ===================================================== */}
+      <div className="block md:hidden">
+        <BottomNav
+          activeNav="attendance"
+          keHome={() => {}}
+          keRiwayat={keRiwayat}
+          keProfile={keProfile}
+          category="1"
+        />
+      </div>
     </div>
   );
 }
