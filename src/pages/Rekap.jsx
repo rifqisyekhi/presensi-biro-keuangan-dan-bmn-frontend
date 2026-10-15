@@ -123,14 +123,26 @@ function Rekap({ keProfile }) {
 
   const urlExport = `${API_URL}/api/rekap/export?${paramDasar}`;
 
-  const ambilData = async () => {
+  const ambilData = async (overrideDari, overrideSampai, overridePegawai, overrideJenis) => {
+    const dDari = typeof overrideDari === "string" ? overrideDari : dari;
+    const dSampai = typeof overrideSampai === "string" ? overrideSampai : sampai;
+    const dPegawai = typeof overridePegawai === "string" ? overridePegawai : pegawai;
+    const dJenis = typeof overrideJenis === "string" ? overrideJenis : jenis;
+
     setMemuat(true);
     setError(null);
     setPesan(null);
     setPage(1);
 
+    const query =
+      `dari=${encodeURIComponent(dDari)}` +
+      `&sampai=${encodeURIComponent(dSampai)}` +
+      `&pemohon=${encodeURIComponent(noWa)}` +
+      `&pegawai=${encodeURIComponent(dPegawai)}` +
+      `&jenis=${encodeURIComponent(dJenis)}`;
+
     try {
-      const response = await fetch(`${API_URL}/api/rekap?${paramDasar}`);
+      const response = await fetch(`${API_URL}/api/rekap?${query}`);
       const hasil = await response.json();
 
       if (!response.ok) {
@@ -139,7 +151,7 @@ function Rekap({ keProfile }) {
 
       setData(hasil);
 
-      if (!pegawai && Array.isArray(hasil.daftarPegawai)) {
+      if (!dPegawai && Array.isArray(hasil.daftarPegawai)) {
         setDaftarPegawai(hasil.daftarPegawai);
       }
     } catch (err) {
@@ -156,10 +168,11 @@ function Rekap({ keProfile }) {
     ambilData();
   }, []);
 
-  // Shortcut tombol preset tanggal
+  // Shortcut tombol preset tanggal: langsung update tanggal & muat data otomatis
   const pasangPreset = (dDari, dSampai) => {
     setDari(dDari);
     setSampai(dSampai);
+    ambilData(dDari, dSampai);
   };
 
   // =======================================================
@@ -523,21 +536,33 @@ function Rekap({ keProfile }) {
               <button
                 type="button"
                 onClick={() => pasangPreset(hariIni(), hariIni())}
-                className="px-2.5 py-1 rounded-lg border border-mist hover:bg-slate-100 text-slate-700 font-medium transition-all active:scale-95 cursor-pointer"
+                className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-all active:scale-95 cursor-pointer ${
+                  dari === hariIni() && sampai === hariIni()
+                    ? "bg-brand text-white border-brand shadow-xs"
+                    : "border-mist hover:bg-slate-100 text-slate-700"
+                }`}
               >
                 Hari Ini
               </button>
               <button
                 type="button"
                 onClick={() => pasangPreset(awalBulanIni(), hariIni())}
-                className="px-2.5 py-1 rounded-lg border border-mist hover:bg-slate-100 text-slate-700 font-medium transition-all active:scale-95 cursor-pointer"
+                className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-all active:scale-95 cursor-pointer ${
+                  dari === awalBulanIni() && sampai === hariIni()
+                    ? "bg-brand text-white border-brand shadow-xs"
+                    : "border-mist hover:bg-slate-100 text-slate-700"
+                }`}
               >
                 Bulan Ini
               </button>
               <button
                 type="button"
                 onClick={() => pasangPreset(awalBulanLalu(), akhirBulanLalu())}
-                className="px-2.5 py-1 rounded-lg border border-mist hover:bg-slate-100 text-slate-700 font-medium transition-all active:scale-95 cursor-pointer"
+                className={`px-2.5 py-1 rounded-lg border text-xs font-medium transition-all active:scale-95 cursor-pointer ${
+                  dari === awalBulanLalu() && sampai === akhirBulanLalu()
+                    ? "bg-brand text-white border-brand shadow-xs"
+                    : "border-mist hover:bg-slate-100 text-slate-700"
+                }`}
               >
                 Bulan Lalu
               </button>
