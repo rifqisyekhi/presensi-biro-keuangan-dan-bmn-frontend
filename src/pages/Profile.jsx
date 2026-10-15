@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { FiFileText, FiLogOut } from "react-icons/fi";
 import BottomNav from "../components/BottomNav.jsx";
 import logoKemnaker from "../assets/logo-kemnaker.png";
 import { API_URL, NOMOR_BOT_SISKA, FORM_CUTI_URL } from "../config";
@@ -298,19 +299,7 @@ function Profile({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
                   onClick={keRekap}
                   className="w-full bg-brand hover:bg-brand/90 text-white py-3 px-4 rounded-xl font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
                 >
-                  <svg
-                    className="w-4 h-4"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth={2}
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                    />
-                  </svg>
+                  <FiFileText className="w-4 h-4" />
                   <span>Rekap Absensi Pegawai</span>
                 </button>
               )}
@@ -319,19 +308,7 @@ function Profile({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
                 onClick={keLogout}
                 className="w-full border border-red-200 hover:bg-red-50 text-red-600 py-3 px-4 rounded-xl font-bold text-xs sm:text-sm transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
               >
-                <svg
-                  className="w-4 h-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                  />
-                </svg>
+                <FiLogOut className="w-4 h-4" />
                 <span>Keluar dari Akun</span>
               </button>
             </div>

@@ -1,3 +1,4 @@
+import { FiArrowRight } from "react-icons/fi";
 import officePhoto from "../assets/photo.png";
 import logoKemnaker from "../assets/logo-kemnaker.png";
 
@@ -70,20 +71,7 @@ function Start({ keLogin }) {
             className="w-full sm:w-auto px-8 py-4 rounded-2xl text-base font-bold transition-all active:scale-95 bg-white text-navy hover:bg-slate-100 shadow-lg cursor-pointer flex items-center justify-center gap-2 order-1 sm:order-2 shrink-0"
           >
             <span>Mulai / Login</span>
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-5 w-5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2.5}
-                d="M14 5l7 7m0 0l-7 7m7-7H3"
-              />
-            </svg>
+            <FiArrowRight className="h-5 w-5" />
           </button>
         </div>
 

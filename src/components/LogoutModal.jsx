@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { FiLogOut, FiX } from "react-icons/fi";
 
 function LogoutModal({ isOpen, onBatal, onKonfirmasi }) {
   // Tutup modal jika tombol Escape ditekan
@@ -29,27 +30,15 @@ function LogoutModal({ isOpen, onBatal, onKonfirmasi }) {
         {/* Tombol Tutup X */}
         <button
           onClick={onBatal}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center text-xs font-bold transition-colors cursor-pointer"
+          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center transition-colors cursor-pointer"
           title="Batal"
         >
-          ✕
+          <FiX className="w-4 h-4" />
         </button>
 
         {/* Ikon Peringatan Logout */}
         <div className="w-16 h-16 rounded-2xl bg-red-50 text-red-500 mx-auto flex items-center justify-center mb-4 border border-red-100 shadow-xs">
-          <svg
-            className="w-8 h-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth={1.8}
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-            />
-          </svg>
+          <FiLogOut className="w-8 h-8 ml-0.5" />
         </div>
 
         {/* Judul & Keterangan */}

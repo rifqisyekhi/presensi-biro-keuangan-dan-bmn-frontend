@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { FiBell, FiArrowRight, FiExternalLink } from "react-icons/fi";
+import { useAlert } from "../context/AlertContext";
 import BottomNav from "../components/BottomNav";
 import logoKemnaker from "../assets/logo-kemnaker.png";
 
@@ -156,6 +158,7 @@ function KartuLembur({ lembur }) {
 
 function Home({ keAttendance, keRiwayat, keProfile, keRekap, keLogout }) {
   const [user, setUser] = useState(null);
+  const { showAlert } = useAlert();
 
   const [attendance, setAttendance] = useState({
     status: "Belum Absen",
@@ -499,19 +502,7 @@ function Home({ keAttendance, keRiwayat, keProfile, keRekap, keLogout }) {
           </div>
 
           <button onClick={keProfile} className="w-10 h-10 rounded-full bg-mist flex items-center justify-center cursor-pointer">
-            <svg
-              className="w-5 h-5 text-brand"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={1.8}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 17h5l-1.5-2v-5a6.5 6.5 0 00-13 0v5L4 17h5m6 0a3 3 0 01-6 0"
-              />
-            </svg>
+            <FiBell className="w-5 h-5 text-brand" />
           </button>
         </div>
       </header>
@@ -667,7 +658,11 @@ function Home({ keAttendance, keRiwayat, keProfile, keRekap, keLogout }) {
                 <button
                   onClick={() => {
                     if (!user?.no_wa) {
-                      alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
+                      showAlert({
+                        title: "Perlu Login Ulang",
+                        message: "Data nomor WhatsApp belum tersedia. Silakan login kembali.",
+                        type: "warning",
+                      });
                       return;
                     }
                     keAttendance(attendance.jenis || "WFO");
@@ -675,9 +670,7 @@ function Home({ keAttendance, keRiwayat, keProfile, keRekap, keLogout }) {
                   className="w-full bg-brand hover:bg-brand/90 text-white py-3.5 sm:py-4 rounded-2xl font-bold shadow-md hover:shadow-lg transition-all active:scale-[0.99] cursor-pointer text-sm sm:text-base tracking-wide flex items-center justify-center gap-2"
                 >
                   <span>ABSEN PULANG SEKARANG</span>
-                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                  </svg>
+                  <FiArrowRight className="w-5 h-5" />
                 </button>
               </div>
             ) : attendance.clockOut ? (
@@ -704,7 +697,11 @@ function Home({ keAttendance, keRiwayat, keProfile, keRekap, keLogout }) {
                   <button
                     onClick={() => {
                       if (!user?.no_wa) {
-                        alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
+                        showAlert({
+                          title: "Perlu Login Ulang",
+                          message: "Data nomor WhatsApp belum tersedia. Silakan login kembali.",
+                          type: "warning",
+                        });
                         return;
                       }
                       keAttendance("WFO");
@@ -722,7 +719,11 @@ function Home({ keAttendance, keRiwayat, keProfile, keRekap, keLogout }) {
                   <button
                     onClick={() => {
                       if (!user?.no_wa) {
-                        alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
+                        showAlert({
+                          title: "Perlu Login Ulang",
+                          message: "Data nomor WhatsApp belum tersedia. Silakan login kembali.",
+                          type: "warning",
+                        });
                         return;
                       }
                       keAttendance("WFH");
@@ -740,7 +741,11 @@ function Home({ keAttendance, keRiwayat, keProfile, keRekap, keLogout }) {
                   <button
                     onClick={() => {
                       if (!user?.no_wa) {
-                        alert("Data nomor WhatsApp belum tersedia. Silakan login kembali.");
+                        showAlert({
+                          title: "Perlu Login Ulang",
+                          message: "Data nomor WhatsApp belum tersedia. Silakan login kembali.",
+                          type: "warning",
+                        });
                         return;
                       }
                       keAttendance("DINAS");
@@ -794,9 +799,7 @@ function Home({ keAttendance, keRiwayat, keProfile, keRekap, keLogout }) {
                   className="font-bold text-brand hover:underline shrink-0 text-xs inline-flex items-center gap-1"
                 >
                   <span>Chatbot SisKA</span>
-                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                  </svg>
+                  <FiExternalLink className="w-3.5 h-3.5" />
                 </a>
               </div>
             </div>

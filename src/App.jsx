@@ -8,6 +8,7 @@ import Riwayat from "./pages/History";
 import Profile from "./pages/Profile";
 import Rekap from "./pages/Rekap";
 import LogoutModal from "./components/LogoutModal";
+import { useAlert } from "./context/AlertContext";
 import { API_URL } from "./config";
 
 // =========================================================
@@ -53,6 +54,7 @@ function App() {
   const [attendanceData, setAttendanceData] = useState(null);
 
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const { showAlert } = useAlert();
 
   // =========================================================
   // LOGOUT
@@ -92,12 +94,20 @@ function App() {
       // =====================================================
 
       if (!attendanceData) {
-        alert("Data absensi tidak ditemukan.");
+        showAlert({
+          title: "Data Tidak Ditemukan",
+          message: "Data absensi tidak ditemukan.",
+          type: "error",
+        });
         return;
       }
 
       if (!teksKinerja || !teksKinerja.trim()) {
-        alert("Silakan isi kinerja harian terlebih dahulu.");
+        showAlert({
+          title: "Kinerja Harian Kosong",
+          message: "Silakan isi kinerja harian terlebih dahulu.",
+          type: "warning",
+        });
         return;
       }
 
@@ -107,7 +117,11 @@ function App() {
         attendanceData.noWa;
 
       if (!userPhone) {
-        alert("Nomor WhatsApp tidak ditemukan. Silakan login kembali.");
+        showAlert({
+          title: "Sesi Berakhir",
+          message: "Nomor WhatsApp tidak ditemukan. Silakan login kembali.",
+          type: "warning",
+        });
         return;
       }
 
@@ -160,7 +174,11 @@ function App() {
       // =====================================================
 
       if (!finalData.clockIn) {
-        alert("Anda belum absen masuk.");
+        showAlert({
+          title: "Absen Masuk Belum Ada",
+          message: "Anda belum absen masuk hari ini.",
+          type: "warning",
+        });
         return;
       }
 
@@ -169,7 +187,11 @@ function App() {
       // =====================================================
 
       if (!finalData.clockOut) {
-        alert("Anda belum absen keluar.");
+        showAlert({
+          title: "Absen Keluar Belum Ada",
+          message: "Anda belum absen keluar hari ini.",
+          type: "warning",
+        });
         return;
       }
 
@@ -241,13 +263,21 @@ function App() {
       console.log("✅ KINERJA TERSIMPAN");
       console.log("=================================");
 
-      alert("Absensi selesai. Absen keluar dan kinerja harian berhasil disimpan.");
+      showAlert({
+        title: "Presensi Lengkap!",
+        message: "Absensi selesai. Absen keluar dan kinerja harian Anda berhasil disimpan.",
+        type: "success",
+      });
 
       setHalamanAktif("home");
     } catch (error) {
       console.error("❌ ERROR FINAL SUBMIT:", error);
 
-      alert(error.message || "Terjadi kesalahan saat menyimpan absensi.");
+      showAlert({
+        title: "Gagal Menyimpan",
+        message: error.message || "Terjadi kesalahan saat menyimpan absensi.",
+        type: "error",
+      });
 
       setHalamanAktif("home");
     }
@@ -329,6 +359,10 @@ function App() {
         <Attendance
           jenisKehadiran={jenisKehadiran}
           keHome={() => setHalamanAktif("home")}
+          keRiwayat={() => setHalamanAktif("riwayat")}
+          keProfile={() => setHalamanAktif("profile")}
+          keRekap={() => setHalamanAktif("rekap")}
+          keLogout={handleLogout}
           keKinerja={(data) => {
             console.log("=================================");
 
@@ -357,6 +391,11 @@ function App() {
         <DailyPerformance
           attendanceData={attendanceData}
           keBack={() => setHalamanAktif("home")}
+          keHome={() => setHalamanAktif("home")}
+          keRiwayat={() => setHalamanAktif("riwayat")}
+          keProfile={() => setHalamanAktif("profile")}
+          keRekap={() => setHalamanAktif("rekap")}
+          keLogout={handleLogout}
           onSubmitKinerja={handleSubmitKinerja}
         />
       )}

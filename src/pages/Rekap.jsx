@@ -22,6 +22,7 @@ import {
   FileSpreadsheet,
   AlertTriangle,
 } from "lucide-react";
+import { useAlert } from "../context/AlertContext";
 import { API_URL, urlFoto } from "../config";
 
 // =========================================================
@@ -32,7 +33,28 @@ const JENIS_KEHADIRAN = [
   { nilai: "WFO", label: "WFO" },
   { nilai: "WFH", label: "WFH" },
   { nilai: "DINAS", label: "Dinas Luar" },
+  { nilai: "CUTI", label: "Cuti" },
+  { nilai: "IZIN", label: "Izin" },
+  { nilai: "ALPHA", label: "Alpha" },
 ];
+
+function getStatusBadgeClass(attendanceType) {
+  switch (attendanceType) {
+    case "WFO":
+      return "bg-teal/15 text-teal border border-teal/20";
+    case "WFH":
+      return "bg-orange-light/25 text-navy border border-orange-light/30";
+    case "DINAS":
+      return "bg-green/25 text-navy border border-green/30";
+    case "CUTI":
+    case "IZIN":
+      return "bg-amber-100 text-amber-800 border border-amber-300";
+    case "ALPHA":
+      return "bg-red-100 text-red-700 border border-red-300";
+    default:
+      return "bg-slate-100 text-slate-700 border border-slate-200";
+  }
+}
 
 function jamKeInput(jam) {
   const cocok = /^(\d{1,2})[.:](\d{2})$/.exec(String(jam || "").trim());
@@ -71,6 +93,8 @@ function akhirBulanLalu() {
 }
 
 function Rekap({ keProfile }) {
+  const { showAlert } = useAlert();
+
   // Filter Waktu & Parameter Server
   const [dari, setDari] = useState(awalBulanIni());
   const [sampai, setSampai] = useState(hariIni());
@@ -183,7 +207,11 @@ function Rekap({ keProfile }) {
     let list = data.data;
 
     if (filterHanyaBelumPulang) {
-      list = list.filter((item) => !item.jamPulang);
+      list = list.filter(
+        (item) =>
+          (item.attendanceType === "WFO" || item.attendanceType === "WFH") &&
+          !item.jamPulang
+      );
     }
 
     if (searchQuery.trim()) {
@@ -193,7 +221,9 @@ function Rekap({ keProfile }) {
           (item.nama && item.nama.toLowerCase().includes(q)) ||
           (item.nip && item.nip.toLowerCase().includes(q)) ||
           (item.sub_unit && item.sub_unit.toLowerCase().includes(q)) ||
-          (item.kinerja && item.kinerja.toLowerCase().includes(q))
+          (item.kinerja && item.kinerja.toLowerCase().includes(q)) ||
+          (item.jenis && item.jenis.toLowerCase().includes(q)) ||
+          (item.attendanceType && item.attendanceType.toLowerCase().includes(q))
       );
     }
 
@@ -204,20 +234,37 @@ function Rekap({ keProfile }) {
   const ringkasan = useMemo(() => {
     if (!data?.data?.length) return null;
     const pegawaiSet = new Set(data.data.map((d) => d.no_wa));
-    const belumPulang = data.data.filter((d) => !d.jamPulang).length;
+    const hadir = data.data.filter(
+      (d) =>
+        d.attendanceType === "WFO" ||
+        d.attendanceType === "WFH" ||
+        d.attendanceType === "DINAS"
+    ).length;
     const wfo = data.data.filter((d) => d.attendanceType === "WFO").length;
     const wfh = data.data.filter((d) => d.attendanceType === "WFH").length;
     const dinas = data.data.filter((d) => d.attendanceType === "DINAS").length;
+    const cuti = data.data.filter(
+      (d) => d.attendanceType === "CUTI" || d.attendanceType === "IZIN"
+    ).length;
+    const alpha = data.data.filter((d) => d.attendanceType === "ALPHA").length;
+    const belumPulang = data.data.filter(
+      (d) =>
+        (d.attendanceType === "WFO" || d.attendanceType === "WFH") &&
+        !d.jamPulang
+    ).length;
 
     return {
       totalBaris: data.total,
       totalPegawai: pegawaiSet.size,
+      hadir,
       belumPulang,
       wfo,
       wfh,
       dinas,
+      cuti,
+      alpha,
     };
-  }, [data?.data]);
+  }, [data?.data, data?.total]);
 
   // Pagination Slice
   const totalPages = Math.ceil(dataFiltered.length / perPage) || 1;
@@ -258,9 +305,19 @@ function Rekap({ keProfile }) {
 
       setPesan(hasil.message || "Data absensi berhasil dihapus.");
       setModalHapus(null);
+      showAlert({
+        title: "Absensi Dihapus",
+        message: hasil.message || "Data absensi berhasil dihapus.",
+        type: "success",
+      });
     } catch (err) {
       console.error("Error hapus absensi:", err);
       setError(err.message);
+      showAlert({
+        title: "Gagal Menghapus Data",
+        message: err.message || "Terjadi kesalahan saat menghapus data.",
+        type: "error",
+      });
     } finally {
       setSedangHapus(false);
     }
@@ -307,6 +364,7 @@ function Rekap({ keProfile }) {
                 d.id === modalStatus.id
                   ? {
                       ...d,
+                      id: hasil.absensi?.id || d.id,
                       attendanceType: hasil.absensi?.attendanceType || statusBaru,
                       jenis: hasil.absensi?.jenis || d.jenis,
                       perubahanStatus: hasil.absensi?.perubahanStatus || d.perubahanStatus,
@@ -370,8 +428,13 @@ function Rekap({ keProfile }) {
                 d.id === modalJam.id
                   ? {
                       ...d,
+                      id: hasil.absensi?.id || d.id,
                       jamMasuk: hasil.absensi?.jamMasuk ?? d.jamMasuk,
                       jamPulang: hasil.absensi?.jamPulang ?? d.jamPulang,
+                      attendanceType:
+                        d.attendanceType === "ALPHA" ? "WFO" : d.attendanceType,
+                      jenis:
+                        d.attendanceType === "ALPHA" ? "WFO" : d.jenis,
                       perubahanJam: hasil.absensi?.perubahanJam || d.perubahanJam,
                     }
                   : d
@@ -466,59 +529,74 @@ function Rekap({ keProfile }) {
 
         {/* ============ STATISTIK RINGKASAN ============ */}
         {ringkasan && (
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            <div className="bg-white p-4 rounded-2xl border border-mist shadow-xs flex items-center gap-3.5">
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
+            <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-mist shadow-xs flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-blue-50 text-brand flex items-center justify-center shrink-0">
                 <User className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-slate-500 font-medium truncate">Total Pegawai</p>
+                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Total Pegawai</p>
                 <h3 className="text-xl sm:text-2xl font-bold text-navy">{ringkasan.totalPegawai}</h3>
               </div>
             </div>
 
-            <div className="bg-white p-4 rounded-2xl border border-mist shadow-xs flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+            <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-mist shadow-xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Total Hadir</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-navy">{ringkasan.hadir}</h3>
+                <div className="flex items-center gap-1.5 text-[10px] font-semibold text-slate-500 mt-0.5 truncate">
+                  <span className="text-teal font-bold">{ringkasan.wfo} WFO</span>
+                  <span>•</span>
+                  <span className="text-navy">{ringkasan.wfh} WFH</span>
+                  <span>•</span>
+                  <span className="text-emerald-600">{ringkasan.dinas} Dinas</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-mist shadow-xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                 <Calendar className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-xs text-slate-500 font-medium truncate">Total Kehadiran</p>
-                <h3 className="text-xl sm:text-2xl font-bold text-navy">{ringkasan.totalBaris}</h3>
+                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Cuti / Izin</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-amber-700">{ringkasan.cuti}</h3>
+                <p className="text-[10px] text-amber-600 font-medium mt-0.5 truncate">Izin resmi</p>
+              </div>
+            </div>
+
+            <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-mist shadow-xs flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Alpha</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-red-600">{ringkasan.alpha}</h3>
+                <p className="text-[10px] text-red-500 font-medium mt-0.5 truncate">Tidak hadir</p>
               </div>
             </div>
 
             <div
               onClick={() => setFilterHanyaBelumPulang((prev) => !prev)}
-              className={`p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-3.5 ${
+              className={`p-3.5 sm:p-4 rounded-2xl border transition-all cursor-pointer flex items-center gap-3 col-span-2 sm:col-span-1 ${
                 filterHanyaBelumPulang
                   ? "bg-amber-100 border-amber-300 ring-2 ring-amber-400"
                   : "bg-white border-mist hover:border-amber-300 shadow-xs"
               }`}
-              title="Klik untuk menyaring yang belum pulang"
+              title="Klik untuk menyaring pegawai hadir yang belum absen pulang"
             >
               <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
                 <Clock className="w-5 h-5" />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-1.5">
-                  <p className="text-xs text-slate-500 font-medium truncate">Belum Pulang</p>
-                  <span className="text-[10px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded-sm">Filter</span>
+                  <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Belum Pulang</p>
+                  <span className="text-[9px] bg-amber-100 text-amber-800 font-bold px-1.5 py-0.2 rounded-sm">Filter</span>
                 </div>
                 <h3 className="text-xl sm:text-2xl font-bold text-amber-600">{ringkasan.belumPulang}</h3>
-              </div>
-            </div>
-
-            <div className="bg-white p-4 rounded-2xl border border-mist shadow-xs flex items-center gap-3.5">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                <CheckCircle2 className="w-5 h-5" />
-              </div>
-              <div className="min-w-0">
-                <p className="text-xs text-slate-500 font-medium truncate">Status Kehadiran</p>
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-700 mt-1">
-                  <span className="text-blue-600">WFO: {ringkasan.wfo}</span>
-                  <span className="text-purple-600">WFH: {ringkasan.wfh}</span>
-                  <span className="text-emerald-600">Dinas: {ringkasan.dinas}</span>
-                </div>
               </div>
             </div>
           </div>
@@ -616,9 +694,13 @@ function Rekap({ keProfile }) {
                 className="w-full border border-mist rounded-xl px-3 py-2 text-xs sm:text-sm bg-white focus:outline-hidden focus:ring-2 focus:ring-brand/30 focus:border-brand"
               >
                 <option value="">Semua Status</option>
+                <option value="HADIR">Semua Hadir (WFO/WFH/Dinas)</option>
                 <option value="WFO">WFO</option>
                 <option value="WFH">WFH</option>
                 <option value="DINAS">Dinas Luar</option>
+                <option value="CUTI">Cuti</option>
+                <option value="IZIN">Izin</option>
+                <option value="ALPHA">Alpha (Tidak Hadir)</option>
               </select>
             </div>
 
@@ -725,13 +807,27 @@ function Rekap({ keProfile }) {
                 {!memuat &&
                   pagedData.map((baris, idx) => {
                     const noUrut = (page - 1) * perPage + idx + 1;
-                    const isBelumPulang = !baris.jamPulang;
+                    const isAlpha = baris.attendanceType === "ALPHA";
+                    const isCuti =
+                      baris.attendanceType === "CUTI" ||
+                      baris.attendanceType === "IZIN";
+                    const isBelumPulang =
+                      (baris.attendanceType === "WFO" ||
+                        baris.attendanceType === "WFH") &&
+                      !baris.jamPulang;
+                    const isVirtualAlpha = String(baris.id).startsWith("alpha_");
 
                     return (
                       <tr
                         key={baris.id || `${baris.no_wa}-${baris.tanggal}-${idx}`}
                         className={`hover:bg-slate-50/80 transition-colors ${
-                          isBelumPulang ? "bg-amber-50/30" : ""
+                          isAlpha
+                            ? "bg-red-50/20"
+                            : isCuti
+                            ? "bg-amber-50/15"
+                            : isBelumPulang
+                            ? "bg-amber-50/30"
+                            : ""
                         }`}
                       >
                         {/* NO */}
@@ -759,13 +855,9 @@ function Rekap({ keProfile }) {
                         {/* STATUS */}
                         <td className="py-3.5 px-3 text-center">
                           <span
-                            className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${
-                              baris.attendanceType === "WFO"
-                                ? "bg-teal/15 text-teal"
-                                : baris.attendanceType === "WFH"
-                                ? "bg-orange-light/25 text-navy"
-                                : "bg-green/25 text-navy"
-                            }`}
+                            className={`inline-block px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${getStatusBadgeClass(
+                              baris.attendanceType
+                            )}`}
                           >
                             {baris.jenis || baris.attendanceType || "-"}
                           </span>
@@ -776,15 +868,23 @@ function Rekap({ keProfile }) {
 
                         {/* JAM MASUK */}
                         <td className="py-3.5 px-3 text-center">
-                          <span className="font-bold text-slate-700 text-[13px]">{baris.jamMasuk || "-"}</span>
-                          {baris.perubahanJam?.dariMasuk && (
-                            <div className="text-[9px] text-amber-700 font-semibold">Diedit</div>
+                          {isAlpha || isCuti ? (
+                            <span className="text-slate-300 font-medium">-</span>
+                          ) : (
+                            <>
+                              <span className="font-bold text-slate-700 text-[13px]">{baris.jamMasuk || "-"}</span>
+                              {baris.perubahanJam?.dariMasuk && (
+                                <div className="text-[9px] text-amber-700 font-semibold">Diedit</div>
+                              )}
+                            </>
                           )}
                         </td>
 
                         {/* JAM PULANG */}
                         <td className="py-3.5 px-3 text-center">
-                          {baris.jamPulang ? (
+                          {isAlpha || isCuti ? (
+                            <span className="text-slate-300 font-medium">-</span>
+                          ) : baris.jamPulang ? (
                             <span className="font-bold text-slate-700 text-[13px]">{baris.jamPulang}</span>
                           ) : (
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800">
@@ -800,6 +900,10 @@ function Rekap({ keProfile }) {
                             <div className="line-clamp-2 text-[11px]" title={baris.kinerja}>
                               {baris.kinerja}
                             </div>
+                          ) : isAlpha ? (
+                            <span className="text-red-400 italic text-[11px]">Tidak ada presensi (Alpha)</span>
+                          ) : isCuti ? (
+                            <span className="text-amber-700 italic text-[11px]">{baris.jenis || "Cuti / Izin"}</span>
                           ) : (
                             <span className="text-slate-300 italic text-[11px]">Tidak ada catatan kinerja</span>
                           )}
@@ -880,9 +984,18 @@ function Rekap({ keProfile }) {
 
                             <button
                               type="button"
+                              disabled={isVirtualAlpha}
                               onClick={() => setModalHapus(baris)}
-                              className="p-1.5 rounded-lg border border-mist text-slate-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50/50 transition-all cursor-pointer"
-                              title="Hapus Data Absensi"
+                              className={`p-1.5 rounded-lg border transition-all ${
+                                isVirtualAlpha
+                                  ? "border-mist/40 text-slate-300 cursor-not-allowed opacity-40"
+                                  : "border-mist text-slate-400 hover:text-red-600 hover:border-red-300 hover:bg-red-50/50 cursor-pointer"
+                              }`}
+                              title={
+                                isVirtualAlpha
+                                  ? "Catatan Alpha otomatis tidak perlu dihapus"
+                                  : "Hapus Data Absensi"
+                              }
                             >
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
@@ -917,13 +1030,27 @@ function Rekap({ keProfile }) {
 
           {!memuat &&
             pagedData.map((baris, idx) => {
-              const isBelumPulang = !baris.jamPulang;
+              const isAlpha = baris.attendanceType === "ALPHA";
+              const isCuti =
+                baris.attendanceType === "CUTI" ||
+                baris.attendanceType === "IZIN";
+              const isBelumPulang =
+                (baris.attendanceType === "WFO" ||
+                  baris.attendanceType === "WFH") &&
+                !baris.jamPulang;
+              const isVirtualAlpha = String(baris.id).startsWith("alpha_");
 
               return (
                 <div
                   key={baris.id || `${baris.no_wa}-${baris.tanggal}-${idx}`}
                   className={`bg-white rounded-2xl p-4 border transition-all ${
-                    isBelumPulang ? "border-amber-300 bg-amber-50/20 shadow-xs" : "border-mist shadow-xs"
+                    isAlpha
+                      ? "border-red-200 bg-red-50/20"
+                      : isCuti
+                      ? "border-amber-200 bg-amber-50/15"
+                      : isBelumPulang
+                      ? "border-amber-300 bg-amber-50/20 shadow-xs"
+                      : "border-mist shadow-xs"
                   }`}
                 >
                   <div className="flex items-start justify-between gap-2 pb-2.5 border-b border-mist/60">
@@ -935,13 +1062,9 @@ function Rekap({ keProfile }) {
                     </div>
 
                     <span
-                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${
-                        baris.attendanceType === "WFO"
-                          ? "bg-teal/15 text-teal"
-                          : baris.attendanceType === "WFH"
-                          ? "bg-orange-light/25 text-navy"
-                          : "bg-green/25 text-navy"
-                      }`}
+                      className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase shrink-0 ${getStatusBadgeClass(
+                        baris.attendanceType
+                      )}`}
                     >
                       {baris.jenis || baris.attendanceType}
                     </span>
@@ -950,7 +1073,9 @@ function Rekap({ keProfile }) {
                   <div className="grid grid-cols-2 gap-2 my-3 text-xs">
                     <div className="bg-slate-50 p-2.5 rounded-xl border border-mist/60">
                       <p className="text-[10px] text-slate-400 font-medium">Jam Masuk</p>
-                      <p className="font-bold text-slate-700 text-sm mt-0.5">{baris.jamMasuk || "-"}</p>
+                      <p className="font-bold text-slate-700 text-sm mt-0.5">
+                        {isAlpha || isCuti ? "-" : baris.jamMasuk || "-"}
+                      </p>
                     </div>
 
                     <div
@@ -963,20 +1088,34 @@ function Rekap({ keProfile }) {
                       <p className="text-[10px] text-slate-400 font-medium">Jam Pulang</p>
                       <p
                         className={`text-sm mt-0.5 font-bold ${
-                          isBelumPulang ? "text-amber-700" : "text-slate-700"
+                          isBelumPulang
+                            ? "text-amber-700"
+                            : isAlpha || isCuti
+                            ? "text-slate-400"
+                            : "text-slate-700"
                         }`}
                       >
-                        {baris.jamPulang || "Belum Pulang"}
+                        {isAlpha || isCuti
+                          ? "-"
+                          : baris.jamPulang || "Belum Pulang"}
                       </p>
                     </div>
                   </div>
 
-                  {baris.kinerja && (
+                  {baris.kinerja ? (
                     <div className="mb-3 text-xs bg-slate-50 p-2.5 rounded-xl border border-mist/60">
                       <p className="text-[10px] font-semibold text-slate-400 mb-0.5">Kinerja Harian:</p>
                       <p className="text-slate-700 leading-relaxed text-[11px]">{baris.kinerja}</p>
                     </div>
-                  )}
+                  ) : isAlpha ? (
+                    <div className="mb-3 text-xs bg-red-50/50 p-2.5 rounded-xl border border-red-100">
+                      <p className="text-red-500 italic text-[11px]">Tidak ada presensi (Alpha)</p>
+                    </div>
+                  ) : isCuti ? (
+                    <div className="mb-3 text-xs bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
+                      <p className="text-amber-700 italic text-[11px]">{baris.jenis || "Cuti / Izin"}</p>
+                    </div>
+                  ) : null}
 
                   <div className="flex items-center justify-between gap-2 pt-2 border-t border-mist/60">
                     <div className="flex items-center gap-2">
@@ -1024,7 +1163,7 @@ function Rekap({ keProfile }) {
                       <button
                         type="button"
                         onClick={() => bukaModalJam(baris)}
-                        className="p-1.5 rounded-lg border border-mist text-slate-600 hover:bg-slate-100"
+                        className="p-1.5 rounded-lg border border-mist text-slate-600 hover:bg-slate-100 cursor-pointer"
                         title="Ubah Jam"
                       >
                         <Clock className="w-3.5 h-3.5" />
@@ -1032,16 +1171,25 @@ function Rekap({ keProfile }) {
                       <button
                         type="button"
                         onClick={() => bukaModalStatus(baris)}
-                        className="p-1.5 rounded-lg border border-mist text-slate-600 hover:bg-slate-100"
+                        className="p-1.5 rounded-lg border border-mist text-slate-600 hover:bg-slate-100 cursor-pointer"
                         title="Ubah Status"
                       >
                         <Edit3 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         type="button"
+                        disabled={isVirtualAlpha}
                         onClick={() => setModalHapus(baris)}
-                        className="p-1.5 rounded-lg border border-mist text-red-500 hover:bg-red-50"
-                        title="Hapus"
+                        className={`p-1.5 rounded-lg border transition-all ${
+                          isVirtualAlpha
+                            ? "border-mist/40 text-slate-300 cursor-not-allowed opacity-40"
+                            : "border-mist text-red-500 hover:bg-red-50 cursor-pointer"
+                        }`}
+                        title={
+                          isVirtualAlpha
+                            ? "Catatan Alpha otomatis tidak perlu dihapus"
+                            : "Hapus"
+                        }
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -1324,6 +1472,18 @@ function Rekap({ keProfile }) {
               {statusBaru === "DINAS" && modalStatus.attendanceType !== "DINAS" && (
                 <div className="bg-amber-50 border border-amber-200/80 p-3 rounded-xl text-[11px] text-amber-800 leading-relaxed">
                   <strong>Catatan Dinas Luar:</strong> Status dinas luar tidak terikat jam kantor. Kolom Jam Harus Checkout, Terlambat, dan Menit Kerja akan disesuaikan di rekap.
+                </div>
+              )}
+
+              {statusBaru === "ALPHA" && modalStatus.attendanceType !== "ALPHA" && (
+                <div className="bg-red-50 border border-red-200/80 p-3 rounded-xl text-[11px] text-red-800 leading-relaxed">
+                  <strong>Catatan Alpha:</strong> Pegawai akan dicatat tidak hadir (Alpha) pada tanggal ini.
+                </div>
+              )}
+
+              {(statusBaru === "CUTI" || statusBaru === "IZIN") && (
+                <div className="bg-amber-50 border border-amber-200/80 p-3 rounded-xl text-[11px] text-amber-800 leading-relaxed">
+                  <strong>Catatan Cuti/Izin:</strong> Pegawai tercatat izin resmi / cuti dan tidak dikenai denda keterlambatan di rekap.
                 </div>
               )}
             </div>

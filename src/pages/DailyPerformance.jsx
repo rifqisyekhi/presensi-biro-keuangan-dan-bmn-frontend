@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
+import { FiArrowLeft, FiCheck } from "react-icons/fi";
+import { useAlert } from "../context/AlertContext";
 import { API_URL } from "../config";
+import logoKemnaker from "../assets/logo-kemnaker.png";
 
 // =========================================================
 // JAM LEMBUR OTOMATIS
@@ -31,11 +34,40 @@ function hitungJamLembur(jamPulang, jamHarusCheckout) {
   return Math.max(0, Math.floor((pulang - harus) / 60));
 }
 
-function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
+function DailyPerformance({
+  attendanceData,
+  keBack,
+  keHome,
+  keRiwayat,
+  keProfile,
+  keRekap,
+  keLogout,
+  onSubmitKinerja,
+}) {
+  const { showAlert } = useAlert();
   const [teksKinerja, setTeksKinerja] = useState("");
   const [teksKinerjaLembur, setTeksKinerjaLembur] = useState("");
   const [jamLembur, setJamLembur] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [petugas, setPetugas] = useState(false);
+
+  useEffect(() => {
+    const cekPetugas = async () => {
+      try {
+        const noWa = localStorage.getItem("userPhone");
+        if (!noWa) return;
+        const response = await fetch(
+          `${API_URL}/api/rekap/izin?pemohon=${encodeURIComponent(noWa)}`
+        );
+        if (!response.ok) return;
+        const hasil = await response.json();
+        setPetugas(Boolean(hasil.petugas));
+      } catch {
+        // Abaikan jika gagal
+      }
+    };
+    cekPetugas();
+  }, []);
 
   // Jam Harus Checkout dan penanda lembur otomatis dibaca dari
   // backend, bukan dihitung ulang di sini: angkanya harus sama
@@ -112,47 +144,62 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
   const handleKirim = async () => {
     // Jangan kirim kalau belum 20 huruf
     if (jumlahKarakter < minimalKarakter) {
-      alert(
-        `Kinerja harian minimal ${minimalKarakter} huruf. Saat ini baru ${jumlahKarakter} huruf.`
-      );
+      showAlert({
+        title: "Kinerja Terlalu Singkat",
+        message: `Kinerja harian minimal ${minimalKarakter} huruf. Saat ini baru ${jumlahKarakter} huruf.`,
+        type: "warning",
+      });
       return;
     }
 
     if (jumlahKarakter > maksimalKarakter) {
-      alert(
-        `Kinerja harian maksimal ${maksimalKarakter} huruf. Saat ini ${jumlahKarakter} huruf.`
-      );
+      showAlert({
+        title: "Kinerja Terlalu Panjang",
+        message: `Kinerja harian maksimal ${maksimalKarakter} huruf. Saat ini ${jumlahKarakter} huruf.`,
+        type: "warning",
+      });
       return;
     }
 
     if (perluKinerjaLembur && jumlahKarakterLembur < minimalKarakter) {
-      alert(
-        `Anda lembur ${jamLembur} jam hari ini. Kinerja lembur wajib diisi, ` +
-          `minimal ${minimalKarakter} huruf.`
-      );
+      showAlert({
+        title: "Kinerja Lembur Wajib Diisi",
+        message: `Anda lembur ${jamLembur} jam hari ini. Kinerja lembur wajib diisi minimal ${minimalKarakter} huruf.`,
+        type: "warning",
+      });
       return;
     }
 
     // Pastikan data attendance tersedia
     if (!attendanceData) {
       console.error("attendanceData tidak tersedia dari Attendance.jsx");
-      alert("Data absensi tidak ditemukan. Silakan ulangi proses absen keluar.");
+      showAlert({
+        title: "Data Tidak Ditemukan",
+        message: "Data absensi tidak ditemukan. Silakan ulangi proses absen keluar.",
+        type: "error",
+      });
       return;
     }
 
     // Pastikan Clock Out sudah ada
     if (!attendanceData.clockOut) {
       console.error("Clock Out belum tersedia:", attendanceData);
-      alert(
-        "Data absen keluar belum ditemukan. Silakan lakukan absen keluar terlebih dahulu."
-      );
+      showAlert({
+        title: "Belum Absen Keluar",
+        message: "Data absen keluar belum ditemukan. Silakan lakukan absen keluar terlebih dahulu.",
+        type: "warning",
+      });
       return;
     }
 
     // Pastikan fungsi dari App tersedia
     if (typeof onSubmitKinerja !== "function") {
       console.error("onSubmitKinerja belum diberikan dari App.jsx");
-      alert("Terjadi kesalahan sistem. Silakan coba lagi.");
+      showAlert({
+        title: "Kesalahan Sistem",
+        message: "Terjadi kesalahan sistem. Silakan coba lagi.",
+        type: "error",
+      });
       return;
     }
 
@@ -177,7 +224,11 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
       );
     } catch (error) {
       console.error("❌ Gagal submit kinerja:", error);
-      alert(error.message || "Gagal menyimpan kinerja harian.");
+      showAlert({
+        title: "Gagal Menyimpan",
+        message: error.message || "Gagal menyimpan kinerja harian.",
+        type: "error",
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -191,163 +242,260 @@ function DailyPerformance({ attendanceData, keBack, onSubmitKinerja }) {
   });
 
   return (
-    <div className="h-[100dvh] w-full max-w-[430px] mx-auto bg-paper font-sans flex flex-col shadow-lg overflow-hidden">
-      {/* HEADER */}
-      <div className="bg-brand px-6 pt-8 pb-5 text-white rounded-b-[30px] shadow-md shrink-0">
+    <div className="min-h-screen w-full bg-paper font-sans text-navy flex flex-col">
+      {/* =====================================================
+          1. DESKTOP NAVBAR (hidden md:block)
+      ===================================================== */}
+      <header className="hidden md:block bg-white border-b border-mist/80 sticky top-0 z-40 shadow-xs">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-paper p-1.5 border border-mist flex items-center justify-center shadow-xs shrink-0">
+              <img
+                src={logoKemnaker}
+                alt="Logo Kemnaker"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-navy leading-tight">Presensi Non-ASN</h1>
+              <p className="text-[11px] text-slate-500">Biro Keuangan dan BMN</p>
+            </div>
+          </div>
+
+          <nav className="flex items-center gap-1.5 text-xs font-semibold">
+            {keHome && (
+              <button
+                onClick={keHome}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                Beranda
+              </button>
+            )}
+            {keRiwayat && (
+              <button
+                onClick={keRiwayat}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                Riwayat
+              </button>
+            )}
+            {keProfile && (
+              <button
+                onClick={keProfile}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                Profil Saya
+              </button>
+            )}
+            {petugas && keRekap && (
+              <button
+                onClick={keRekap}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Rekap Absensi</span>
+                <span className="bg-brand/10 text-brand text-[10px] font-bold px-1.5 py-0.2 rounded-sm uppercase">Petugas</span>
+              </button>
+            )}
+            <div className="w-px h-5 bg-mist mx-1" />
+            {keLogout && (
+              <button
+                onClick={keLogout}
+                className="px-3.5 py-2 rounded-xl text-red-600 hover:bg-red-50 transition-all cursor-pointer font-bold"
+              >
+                Keluar
+              </button>
+            )}
+          </nav>
+        </div>
+      </header>
+
+      {/* =====================================================
+          2. MOBILE HEADER (block md:hidden)
+      ===================================================== */}
+      <header className="block md:hidden bg-brand px-6 pt-8 pb-5 text-white rounded-b-[30px] shadow-md shrink-0">
         <div className="flex items-center gap-4">
           <button
             onClick={keBack}
             disabled={isSubmitting}
-            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 active:scale-90 transition-all disabled:opacity-50"
+            className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-white/10 active:scale-90 transition-all disabled:opacity-50 cursor-pointer"
           >
-            <svg
-              className="h-6 w-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M10 19l-7-7m0 0l7-7m-7 7h18"
-              />
-            </svg>
+            <FiArrowLeft className="h-6 w-6" />
           </button>
 
           <h1 className="text-xl font-bold">Kinerja Harian</h1>
         </div>
-      </div>
+      </header>
 
-      {/* CONTENT */}
-      <div className="flex-1 min-h-0 px-6 py-4 flex flex-col overflow-hidden">
-        {/* TANGGAL */}
-        <div className="mb-3">
-          <p className="text-xs text-navy/60">Tanggal</p>
-          <p className="font-bold text-navy mt-1">{tanggalSekarang}</p>
-        </div>
-
-        {/* INFO CLOCK OUT */}
-        {attendanceData && (
-          <div className="mb-3 bg-white border border-mist rounded-2xl p-3 shadow-sm">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs text-navy/60">Jam Masuk</p>
-                <p className="font-bold text-navy mt-1">
-                  {attendanceData.clockIn || "Belum"}
-                </p>
-              </div>
-
-              <div className="text-right">
-                <p className="text-xs text-navy/60">Jam Keluar</p>
-                <p className="font-bold text-navy mt-1">
-                  {attendanceData.clockOut || "Belum"}
-                </p>
-              </div>
+      {/* =====================================================
+          3. DESKTOP BREADCRUMB (hidden md:block)
+      ===================================================== */}
+      <div className="hidden md:block bg-white border-b border-mist/80 py-4 shadow-2xs">
+        <div className="max-w-4xl mx-auto px-6 lg:px-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={keBack}
+              disabled={isSubmitting}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-mist hover:bg-slate-50 text-xs font-semibold text-navy transition-all active:scale-95 cursor-pointer shadow-2xs"
+            >
+              <FiArrowLeft className="w-4 h-4 text-brand" />
+              <span>Kembali</span>
+            </button>
+            <div className="h-5 w-px bg-mist" />
+            <div>
+              <h2 className="text-lg font-bold text-navy leading-tight">Pengisian Kinerja Harian</h2>
+              <p className="text-xs text-slate-500">Langkah akhir untuk menyelesaikan absensi keluar hari ini</p>
             </div>
           </div>
-        )}
 
-        {/* LABEL */}
-        <div className="flex items-center justify-between mb-2">
-          <label className="text-sm font-bold text-navy">
-            Kinerja Hari Ini
-          </label>
-
-          <span
-            className={`text-xs font-bold ${
-              sudahMemenuhi ? "text-green-500" : "text-navy/60"
-            }`}
-          >
-            {jumlahKarakter} / {maksimalKarakter}
+          <span className="text-xs font-bold text-slate-600 bg-slate-100 px-3 py-1.5 rounded-xl border border-mist">
+            {tanggalSekarang}
           </span>
         </div>
+      </div>
 
-        {/* TEXTAREA */}
-        <textarea
-          value={teksKinerja}
-          onChange={(e) => setTeksKinerja(e.target.value)}
-          disabled={isSubmitting}
-          maxLength={maksimalKarakter}
-          placeholder="Contoh: Menyusun laporan SPJ bulan Agustus"
-          className="w-full flex-1 min-h-0 bg-white border border-mist rounded-2xl p-4 text-sm text-navy outline-none focus:ring-2 focus:ring-brand resize-none shadow-sm transition-all disabled:bg-mist"
-        />
+      {/* =====================================================
+          4. MAIN CONTENT
+      ===================================================== */}
+      <main className="w-full max-w-[430px] md:max-w-4xl mx-auto px-4 sm:px-6 py-4 md:py-8 flex-1 flex flex-col justify-between md:justify-start">
+        <div className="bg-white rounded-[22px] md:rounded-3xl p-5 md:p-7 border border-mist shadow-xs flex flex-col gap-4">
+          
+          {/* TANGGAL & INFO CLOCK OUT */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-mist/70">
+            <div>
+              <p className="text-xs text-navy/60 font-medium">Tanggal Presensi</p>
+              <p className="font-bold text-navy text-sm sm:text-base mt-0.5">{tanggalSekarang}</p>
+            </div>
 
-        {/* WORD COUNTER */}
-        <div className="mt-2 flex items-center justify-between shrink-0">
-          {!sudahMemenuhi && (
-            <span className="text-xs font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-md">
-              {jumlahKarakter > maksimalKarakter
-                ? `Maksimal ${maksimalKarakter} huruf`
-                : `Minimal ${minimalKarakter} huruf`}
-            </span>
-          )}
+            {attendanceData && (
+              <div className="flex items-center gap-3 bg-slate-50 px-3.5 py-2 rounded-2xl border border-mist/70 text-xs">
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Masuk</span>
+                  <strong className="text-navy font-bold">{attendanceData.clockIn || "--:--"} WIB</strong>
+                </div>
+                <div className="w-px h-6 bg-mist" />
+                <div>
+                  <span className="text-slate-400 block text-[10px]">Keluar</span>
+                  <strong className="text-navy font-bold">{attendanceData.clockOut || "--:--"} WIB</strong>
+                </div>
+              </div>
+            )}
+          </div>
 
-          {sudahMemenuhi && (
-            <span className="text-xs font-semibold text-green-600 bg-green-50 px-2 py-1 rounded-md">
-              ✓ Sudah memenuhi
-            </span>
-          )}
-        </div>
-
-        {/* KINERJA LEMBUR */}
-
-        {perluKinerjaLembur && (
-          <>
-            <div className="mt-3 flex items-center justify-between shrink-0">
-              <label className="text-sm font-bold text-navy">
-                Kinerja Lembur{" "}
-                <span className="text-brand">({jamLembur} jam)</span>
+          {/* LABEL KINERJA HARIAN */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs sm:text-sm font-bold text-navy">
+                Uraian Kinerja Harian <span className="text-red-500">*</span>
               </label>
 
               <span
                 className={`text-xs font-bold ${
-                  lemburMemenuhi ? "text-green-500" : "text-navy/60"
+                  sudahMemenuhi ? "text-emerald-600" : "text-navy/60"
                 }`}
               >
-                {jumlahKarakterLembur} / {maksimalKarakter}
+                {jumlahKarakter} / {maksimalKarakter} karakter
               </span>
             </div>
 
-            <p className="text-[11px] text-navy/60 mb-2 shrink-0">
-              Lembur Anda terhitung otomatis, tanpa perlu diajukan.
-            </p>
-
             <textarea
-              value={teksKinerjaLembur}
-              onChange={(e) => setTeksKinerjaLembur(e.target.value)}
+              value={teksKinerja}
+              onChange={(e) => setTeksKinerja(e.target.value)}
               disabled={isSubmitting}
               maxLength={maksimalKarakter}
-              placeholder="Contoh: Membersihkan ruang rapat lantai 3 dan 4"
-              className="w-full flex-1 min-h-0 bg-white border border-mist rounded-2xl p-4 text-sm text-navy outline-none focus:ring-2 focus:ring-brand resize-none shadow-sm transition-all disabled:bg-mist"
+              rows={4}
+              placeholder="Tuliskan aktivitas atau pekerjaan yang Anda selesaikan hari ini (minimal 10 huruf)..."
+              className="w-full bg-slate-50/60 border border-mist rounded-2xl p-4 text-xs sm:text-sm text-navy outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand focus:bg-white resize-none shadow-2xs transition-all disabled:bg-mist leading-relaxed"
             />
 
-            {!lemburMemenuhi && (
-              <div className="mt-2 shrink-0">
-                <span className="text-xs font-semibold text-red-500 bg-red-50 px-2 py-1 rounded-md">
-                  {jumlahKarakterLembur > maksimalKarakter
+            {/* COUNTER STATUS */}
+            <div className="mt-2 flex items-center justify-between">
+              {!sudahMemenuhi && (
+                <span className="text-xs font-semibold text-red-500 bg-red-50 px-2.5 py-1 rounded-lg">
+                  {jumlahKarakter > maksimalKarakter
                     ? `Maksimal ${maksimalKarakter} huruf`
                     : `Minimal ${minimalKarakter} huruf`}
                 </span>
-              </div>
-            )}
-          </>
-        )}
+              )}
 
-        {/* BUTTON */}
-        <button
-          type="button"
-          onClick={handleKirim}
-          disabled={!sudahMemenuhi || isSubmitting}
-          className="w-full mt-3 shrink-0 bg-brand text-white py-4 rounded-2xl font-bold text-base shadow-lg shadow-mist transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          {isSubmitting
-            ? "Menyimpan..."
-            : sudahMemenuhi
-            ? "Kirim Absen"
-            : `Minimal ${minimalKarakter} huruf`}
-        </button>
-      </div>
+              {sudahMemenuhi && (
+                <span className="text-xs font-semibold text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-lg flex items-center gap-1">
+                  ✓ Kinerja harian sudah memenuhi syarat
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* KINERJA LEMBUR JIKA ADA */}
+          {perluKinerjaLembur && (
+            <div className="pt-3 border-t border-mist/70">
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs sm:text-sm font-bold text-navy flex items-center gap-1.5">
+                  <span>Uraian Kinerja Lembur</span>
+                  <span className="bg-brand/10 text-brand text-[11px] px-2 py-0.5 rounded-full font-bold">
+                    {jamLembur} Jam
+                  </span>
+                </label>
+
+                <span
+                  className={`text-xs font-bold ${
+                    lemburMemenuhi ? "text-emerald-600" : "text-navy/60"
+                  }`}
+                >
+                  {jumlahKarakterLembur} / {maksimalKarakter} karakter
+                </span>
+              </div>
+
+              <p className="text-[11px] text-slate-500 mb-2">
+                Lembur Anda terhitung otomatis ({jamLembur} jam penuh). Silakan isi uraian pekerjaan lembur.
+              </p>
+
+              <textarea
+                value={teksKinerjaLembur}
+                onChange={(e) => setTeksKinerjaLembur(e.target.value)}
+                disabled={isSubmitting}
+                maxLength={maksimalKarakter}
+                rows={3}
+                placeholder="Contoh: Membersihkan ruang rapat lantai 3 dan 4 sesudah jam dinas..."
+                className="w-full bg-slate-50/60 border border-mist rounded-2xl p-4 text-xs sm:text-sm text-navy outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand focus:bg-white resize-none shadow-2xs transition-all disabled:bg-mist leading-relaxed"
+              />
+
+              {!lemburMemenuhi && (
+                <div className="mt-2">
+                  <span className="text-xs font-semibold text-red-500 bg-red-50 px-2.5 py-1 rounded-lg">
+                    {jumlahKarakterLembur > maksimalKarakter
+                      ? `Maksimal ${maksimalKarakter} huruf`
+                      : `Minimal ${minimalKarakter} huruf`}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* SUBMIT BUTTON */}
+          <div className="pt-2">
+            <button
+              type="button"
+              onClick={handleKirim}
+              disabled={!sudahMemenuhi || isSubmitting}
+              className="w-full bg-brand hover:bg-brand/90 text-white py-3.5 sm:py-4 rounded-2xl font-bold text-sm sm:text-base shadow-md hover:shadow-lg active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer flex items-center justify-center gap-2"
+            >
+              {isSubmitting ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Menyimpan Absensi...</span>
+                </>
+              ) : sudahMemenuhi ? (
+                <>
+                  <span>Simpan & Selesaikan Presensi</span>
+                  <FiCheck className="w-5 h-5" />
+                </>
+              ) : (
+                <span>Minimal {minimalKarakter} huruf</span>
+              )}
+            </button>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

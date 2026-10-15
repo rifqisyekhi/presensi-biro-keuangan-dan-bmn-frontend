@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from "react";
+import { FiChevronLeft, FiArrowLeft, FiAlertTriangle, FiMapPin, FiLogOut, FiLogIn, FiCheckCircle } from "react-icons/fi";
+import { useAlert } from "../context/AlertContext";
 import { API_URL, urlFoto } from "../config";
+import logoKemnaker from "../assets/logo-kemnaker.png";
 
 // =========================================================
 // PETA UNTUK WATERMARK
@@ -213,8 +216,13 @@ async function buatThumbnailPeta(lat, lng, ukuran) {
 function Attendance({
   jenisKehadiran = "WFO",
   keHome,
+  keRiwayat,
+  keProfile,
+  keRekap,
+  keLogout,
   keKinerja,
 }) {
+  const { showAlert } = useAlert();
   const inputKameraRef = useRef(null);
   const lokasiRef = useRef(null);
   const attendanceTypeRef = useRef(jenisKehadiran);
@@ -230,6 +238,8 @@ function Attendance({
 
   const [kameraAktif, setKameraAktif] = useState(false);
   const [kameraSiap, setKameraSiap] = useState(false);
+  const [petugas, setPetugas] = useState(false);
+  const [sekarang, setSekarang] = useState(() => new Date());
 
   const [attendance, setAttendance] = useState({
     date: null,
@@ -247,6 +257,63 @@ function Attendance({
 
     kinerja_harian: null,
   });
+
+  // Jam digital real-time berjalan setiap detik
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSekarang(new Date());
+    }, 1000);
+    return () => clearInterval(timer);
+  }, []);
+
+  // Periksa hak akses petugas untuk navbar desktop
+  useEffect(() => {
+    const cekPetugas = async () => {
+      try {
+        const noWa = localStorage.getItem("userPhone");
+        if (!noWa) return;
+        const response = await fetch(
+          `${API_URL}/api/rekap/izin?pemohon=${encodeURIComponent(noWa)}`
+        );
+        if (!response.ok) return;
+        const hasil = await response.json();
+        setPetugas(Boolean(hasil.petugas));
+      } catch {
+        // Abaikan jika gagal
+      }
+    };
+    cekPetugas();
+  }, []);
+
+  const badgeConfig = {
+    WFO: {
+      label: "WFO (Work From Office)",
+      icon: "🏢",
+      color: "bg-teal/15 text-teal border border-teal/30",
+      desc: "Presensi kehadiran di kantor Biro Keuangan dan BMN.",
+      lokasiTip: "Pastikan Anda berada di area kantor Kemnaker RI.",
+    },
+    WFH: {
+      label: "WFH (Work From Home)",
+      icon: "🏠",
+      color: "bg-orange-light/25 text-navy border border-orange-light/40",
+      desc: "Presensi kerja mandiri dari rumah / kediaman.",
+      lokasiTip: "Geotag lokasi tempat tinggal Anda akan diverifikasi otomatis.",
+    },
+    DINAS: {
+      label: "Dinas Luar",
+      icon: "🚗",
+      color: "bg-green/25 text-navy border border-green/40",
+      desc: "Presensi tugas dinas luar kantor.",
+      lokasiTip: "Titik koordinat lokasi penugasan dinas akan dicatat dalam berkas rekap.",
+    },
+  }[jenisKehadiran] || {
+    label: jenisKehadiran,
+    icon: "📍",
+    color: "bg-brand/10 text-brand border border-brand/20",
+    desc: "Presensi kehadiran pegawai.",
+    lokasiTip: "Pastikan GPS aktif untuk merekam koordinat kehadiran.",
+  };
 
   // =========================================================
   // INIT
@@ -714,16 +781,26 @@ function Attendance({
   // lewat aplikasi kamera HP lalu mengunggah hasilnya.
   const bukaPemilihBerkas = (alasan) => {
     if (!inputKameraRef.current) {
-      alert("Tidak bisa membuka pengambilan foto.");
+      showAlert({
+        title: "Kamera Tidak Terbuka",
+        message: "Tidak bisa membuka pengambilan foto.",
+        type: "error",
+      });
       return;
     }
 
-    alert(
-      `${alasan}\n\nSilakan foto dulu dengan aplikasi Kamera di HP Anda, lalu pilih foto itu pada layar berikutnya.`
-    );
-
-    inputKameraRef.current.value = "";
-    inputKameraRef.current.click();
+    showAlert({
+      title: "Gunakan Kamera HP",
+      message: `${alasan}\n\nSilakan ambil foto dengan aplikasi Kamera di HP Anda, lalu pilih foto tersebut pada layar berikutnya.`,
+      type: "info",
+      buttonText: "Pilih Foto",
+      onClose: () => {
+        if (inputKameraRef.current) {
+          inputKameraRef.current.value = "";
+          inputKameraRef.current.click();
+        }
+      },
+    });
   };
 
   const bukaKamera = () => {
@@ -805,7 +882,11 @@ function Attendance({
     const video = videoRef.current;
 
     if (!video || !video.videoWidth) {
-      alert("Kamera belum siap. Tunggu sebentar.");
+      showAlert({
+        title: "Kamera Belum Siap",
+        message: "Kamera belum siap. Tunggu beberapa detik.",
+        type: "warning",
+      });
       return;
     }
 
@@ -817,7 +898,11 @@ function Attendance({
     const ctx = canvas.getContext("2d");
 
     if (!ctx) {
-      alert("Canvas tidak didukung browser.");
+      showAlert({
+        title: "Perangkat Tidak Mendukung",
+        message: "Canvas grafis tidak didukung pada browser ini.",
+        type: "error",
+      });
       return;
     }
 
@@ -830,7 +915,11 @@ function Attendance({
     tutupKamera();
 
     if (!blob) {
-      alert("Gagal mengambil gambar dari kamera.");
+      showAlert({
+        title: "Pengambilan Foto Gagal",
+        message: "Gagal mengambil gambar dari kamera. Silakan coba lagi.",
+        type: "error",
+      });
       return;
     }
 
@@ -861,9 +950,11 @@ function Attendance({
     if (isLoading) return;
 
     if (isMenuMismatch) {
-      alert(
-        `Anda absen masuk sebagai "${attendance.attendanceType}". Silakan pilih menu ${attendance.attendanceType} untuk absen keluar.`
-      );
+      showAlert({
+        title: "Perbedaan Kategori Absensi",
+        message: `Anda absen masuk sebagai "${attendance.attendanceType}". Silakan kembali ke Beranda dan pilih menu ${attendance.attendanceType} untuk melakukan absen keluar.`,
+        type: "warning",
+      });
       return;
     }
 
@@ -897,10 +988,11 @@ function Attendance({
       setIsLoading(false);
       setLoadingText("");
 
-      alert(
-        error.message ||
-          "Gagal mendapatkan lokasi."
-      );
+      showAlert({
+        title: "Gagal Mendapatkan Lokasi",
+        message: error.message || "Gagal mendapatkan lokasi GPS.",
+        type: "error",
+      });
     }
   };
 
@@ -1223,9 +1315,11 @@ function Attendance({
   // foto yang diunggah pegawai.
   const prosesFoto = async (file) => {
     if (!lokasiRef.current) {
-      alert(
-        "Lokasi GPS belum tersedia. Silakan ulangi."
-      );
+      showAlert({
+        title: "GPS Belum Siap",
+        message: "Lokasi GPS belum tersedia. Silakan tunggu beberapa detik dan coba lagi.",
+        type: "warning",
+      });
       return;
     }
 
@@ -1384,9 +1478,11 @@ function Attendance({
         setIsLoading(false);
         setLoadingText("");
 
-        alert(
-          "Absen masuk berhasil dicatat!"
-        );
+        showAlert({
+          title: "Absen Masuk Berhasil!",
+          message: "Data absensi masuk Anda berhasil dicatat hari ini.",
+          type: "success",
+        });
 
         return;
       }
@@ -1473,10 +1569,11 @@ function Attendance({
       setIsLoading(false);
       setLoadingText("");
 
-      alert(
-        error.message ||
-          "Gagal memproses foto."
-      );
+      showAlert({
+        title: "Gagal Memproses Foto",
+        message: error.message || "Gagal memproses foto absensi.",
+        type: "error",
+      });
     }
   };
 
@@ -1492,340 +1589,375 @@ function Attendance({
   // RENDER
   // =========================================================
 
+  // =========================================================
+  // RENDER
+  // =========================================================
+
   return (
-    <div className="h-[100dvh] relative w-full max-w-[430px] mx-auto bg-paper font-sans text-navy flex flex-col overflow-hidden">
+    <div className="min-h-screen w-full bg-paper font-sans text-navy flex flex-col">
+      {/* =====================================================
+          1. DESKTOP NAVBAR (hidden md:block)
+      ===================================================== */}
+      <header className="hidden md:block bg-white border-b border-mist/80 sticky top-0 z-40 shadow-xs">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8 py-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-paper p-1.5 border border-mist flex items-center justify-center shadow-xs shrink-0">
+              <img
+                src={logoKemnaker}
+                alt="Logo Kemnaker"
+                className="w-full h-full object-contain"
+              />
+            </div>
+            <div>
+              <h1 className="text-base font-bold text-navy leading-tight">Presensi Non-ASN</h1>
+              <p className="text-[11px] text-slate-500">Biro Keuangan dan BMN</p>
+            </div>
+          </div>
 
-      {/* HEADER */}
+          <nav className="flex items-center gap-1.5 text-xs font-semibold">
+            <button
+              onClick={keHome}
+              className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer"
+            >
+              Beranda
+            </button>
+            {keRiwayat && (
+              <button
+                onClick={keRiwayat}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                Riwayat
+              </button>
+            )}
+            {keProfile && (
+              <button
+                onClick={keProfile}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer"
+              >
+                Profil Saya
+              </button>
+            )}
+            {petugas && keRekap && (
+              <button
+                onClick={keRekap}
+                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
+              >
+                <span>Rekap Absensi</span>
+                <span className="bg-brand/10 text-brand text-[10px] font-bold px-1.5 py-0.2 rounded-sm uppercase">Petugas</span>
+              </button>
+            )}
+            <div className="w-px h-5 bg-mist mx-1" />
+            {keLogout && (
+              <button
+                onClick={keLogout}
+                className="px-3.5 py-2 rounded-xl text-red-600 hover:bg-red-50 transition-all cursor-pointer font-bold"
+              >
+                Keluar
+              </button>
+            )}
+          </nav>
+        </div>
+      </header>
 
-      <div className="bg-brand text-white px-5 pt-8 pb-4 rounded-b-[30px] shadow-md shrink-0">
-
+      {/* =====================================================
+          2. MOBILE HEADER (block md:hidden)
+      ===================================================== */}
+      <header className="block md:hidden bg-brand text-white px-5 pt-8 pb-4 rounded-b-[30px] shadow-md shrink-0">
         <div className="flex items-center">
-
           <button
             onClick={keHome}
             disabled={isLoading}
-            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 active:scale-90 transition-all disabled:opacity-50"
+            className="w-10 h-10 rounded-full flex items-center justify-center hover:bg-white/10 active:scale-90 transition-all disabled:opacity-50 cursor-pointer"
           >
-            <svg
-              className="w-6 h-6"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M15 19l-7-7 7-7"
-              />
-            </svg>
+            <FiChevronLeft className="w-6 h-6" />
           </button>
 
           <div className="flex-1 text-center">
-
-            <h1 className="text-lg font-bold">
-              Absensi
-            </h1>
-
+            <h1 className="text-lg font-bold">Absensi</h1>
             <p className="text-xs text-mist mt-0.5">
               {user?.nama || "Pegawai"} • {jenisKehadiran}
             </p>
-
           </div>
 
           <div className="w-10" />
-
         </div>
+      </header>
 
-      </div>
-
-      {/* CONTENT */}
-
-      <div className="flex-1 min-h-0 px-5 py-3 flex flex-col overflow-hidden">
-
-        {/* DATE */}
-
-        <div className="text-center mb-2 shrink-0">
-
-          <p className="text-xs text-navy/60">
-            {getCurrentDate()}
-          </p>
-
-          <h2 className="text-2xl font-bold text-brand mt-1">
-            {getCurrentTime()}
-          </h2>
-
-        </div>
-
-        {/* STATUS */}
-
-        <div className="bg-white rounded-[20px] p-3 shadow-sm border border-mist shrink-0">
-
-          <div className="flex items-center justify-between mb-3">
-
-            <div>
-
-              <p className="text-xs text-navy/60">
-                Jenis Kehadiran
-              </p>
-
-              <h2 className="text-lg font-bold mt-1">
-                {jenisKehadiran}
-              </h2>
-
-            </div>
-
-            <div className="px-3 py-1.5 rounded-full bg-mist text-brand text-xs font-bold">
-              Hari Ini
-            </div>
-
-          </div>
-
-          {/* CLOCK IN */}
-
-          <div className="flex items-center gap-3 py-2 border-b border-mist">
-
-            <div className="w-10 h-10 rounded-xl bg-mist flex items-center justify-center">
-
-              <svg
-                className="w-5 h-5 text-brand"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M5 12l4 4L19 6"
-                />
-              </svg>
-
-            </div>
-
-            <div className="flex-1">
-
-              <p className="text-xs text-navy/60">
-                Jam Masuk
-              </p>
-
-              <p className="font-bold text-navy">
-                {attendance.clockIn ||
-                  "Belum"}
-              </p>
-
-            </div>
-
-          </div>
-
-          {/* CLOCK OUT */}
-
-          <div className="flex items-center gap-3 py-2">
-
-            <div className="w-10 h-10 rounded-xl bg-mist flex items-center justify-center">
-
-              <svg
-                className="w-5 h-5 text-navy"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                strokeWidth={2}
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M12 8v4l3 2"
-                />
-
-                <circle
-                  cx="12"
-                  cy="12"
-                  r="9"
-                />
-              </svg>
-
-            </div>
-
-            <div className="flex-1">
-
-              <p className="text-xs text-navy/60">
-                Jam Keluar
-              </p>
-
-              <p className="font-bold text-navy">
-                {attendance.clockOut ||
-                  "Belum"}
-              </p>
-
-            </div>
-
-          </div>
-
-        </div>
-
-        {/* MISMATCH */}
-
-        {isMenuMismatch && (
-          <div className="mt-2 bg-red-50 border border-red-200 rounded-[20px] p-3 flex gap-3 items-start shadow-sm shrink-0">
-
-            <svg
-              className="w-6 h-6 text-red-500 shrink-0"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              strokeWidth={2}
+      {/* =====================================================
+          3. DESKTOP BREADCRUMB & TITLE BAR (hidden md:block)
+      ===================================================== */}
+      <div className="hidden md:block bg-white border-b border-mist/80 py-4 shadow-2xs">
+        <div className="max-w-6xl mx-auto px-6 lg:px-8 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={keHome}
+              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl border border-mist hover:bg-slate-50 text-xs font-semibold text-navy transition-all active:scale-95 cursor-pointer shadow-2xs"
             >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-1.333-1.333-1.732 0L3.34 16c-.77 1.333.192 3 1.732 3z"
-              />
-            </svg>
-
+              <FiArrowLeft className="w-4 h-4 text-brand" />
+              <span>Kembali ke Beranda</span>
+            </button>
+            <div className="h-5 w-px bg-mist" />
             <div>
-
-              <h3 className="text-sm font-bold text-red-700">
-                Perhatian!
-              </h3>
-
-              <p className="text-xs text-red-600 mt-1 leading-relaxed">
-                Tadi Anda{" "}
-                <strong>
-                  Jam Masuk
-                </strong>{" "}
-                menggunakan menu{" "}
-                <strong>
-                  {attendance.attendanceType}
-                </strong>
-                . Silakan kembali ke Home dan pilih menu tersebut untuk melakukan{" "}
-                <strong>
-                  Jam Keluar
-                </strong>
-                .
-              </p>
-
+              <h2 className="text-lg font-bold text-navy leading-tight">Formulir Presensi Kehadiran</h2>
+              <p className="text-xs text-slate-500">Pencatatan kehadiran dan foto bukti ber-watermark geotag</p>
             </div>
-
           </div>
-        )}
 
-        {/* LOCATION */}
-
-        {lokasi && (
-          <div className="bg-white rounded-[20px] p-3 shadow-sm border border-mist mt-2 shrink-0">
-
-            <div className="flex gap-3">
-
-              <div className="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center shrink-0">
-
-                <svg
-                  className="w-5 h-5 text-red-500"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                  strokeWidth={1.8}
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z"
-                  />
-
-                  <circle
-                    cx="12"
-                    cy="10"
-                    r="2.5"
-                  />
-                </svg>
-
-              </div>
-
-              <div className="min-w-0">
-
-                <p className="text-xs text-navy/60">
-                  Lokasi Saat Ini
-                </p>
-
-                <p className="text-xs font-semibold text-navy mt-1 break-words">
-                  {alamat}
-                </p>
-
-                <p className="text-[10px] text-navy/60 mt-2">
-                  {lokasi.lat.toFixed(6)}
-                  ,{" "}
-                  {lokasi.lng.toFixed(6)}
-                  {" • "}
-                  Akurasi{" "}
-                  {Math.round(
-                    lokasi.accuracy
-                  )}{" "}
-                  meter
-                </p>
-
-              </div>
-
-            </div>
-
+          <div className="flex items-center gap-2">
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold ${badgeConfig.color}`}>
+              <span>{badgeConfig.icon}</span>
+              <span>{badgeConfig.label}</span>
+            </span>
           </div>
-        )}
-
-        {/* FOTO */}
-
-        {previewFoto && (
-          <div className="mt-2 flex-1 min-h-0 flex flex-col">
-
-            <div className="flex items-center justify-between mb-2 shrink-0">
-
-              <h3 className="font-bold text-sm">
-                Bukti Absensi
-              </h3>
-
-              <span className="text-[10px] text-brand font-bold">
-                VERIFIED
-              </span>
-
-            </div>
-
-            <div className="flex-1 min-h-0 rounded-[20px] overflow-hidden border-2 border-brand shadow-sm bg-black">
-
-              <img
-                src={urlFoto(previewFoto)}
-                alt="Bukti absensi"
-                className="w-full h-full object-contain block"
-              />
-
-            </div>
-
-          </div>
-        )}
-
-        {/* INFORMATION */}
-
-        {!previewFoto && (
-          <div className="mt-2 p-3 bg-mist border border-mist rounded-2xl shrink-0">
-
-            <p className="text-xs text-navy leading-relaxed">
-              Pastikan GPS aktif dan posisi Anda sesuai dengan lokasi sebenarnya. Foto akan diberikan watermark waktu, koordinat GPS, akurasi dan alamat.
-            </p>
-
-          </div>
-        )}
-
+        </div>
       </div>
 
-      {/* BOTTOM ACTION */}
+      {/* =====================================================
+          4. MAIN CONTENT CONTAINER (RESPONSIF MOBILE & DESKTOP)
+      ===================================================== */}
+      <main className="w-full max-w-[430px] md:max-w-6xl mx-auto px-4 sm:px-5 md:px-8 py-4 md:py-8 flex-1 pb-24 md:pb-8">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-4 md:gap-6 items-start">
+          
+          {/* KOLOM KIRI: STATUS, WAKTU & LOKASI (md:col-span-7) */}
+          <div className="md:col-span-7 flex flex-col gap-4">
+            
+            {/* CARD 1: STATUS KEHADIRAN & WAKTU */}
+            <div className="bg-white rounded-[22px] md:rounded-3xl p-5 border border-mist shadow-xs flex flex-col gap-4">
+              <div className="flex items-center justify-between pb-3.5 border-b border-mist/70">
+                <div>
+                  <p className="text-[11px] text-slate-500 font-semibold">Tanggal Hari Ini</p>
+                  <h3 className="font-bold text-navy text-sm sm:text-base mt-0.5">
+                    {sekarang.toLocaleDateString("id-ID", {
+                      weekday: "long",
+                      day: "numeric",
+                      month: "long",
+                      year: "numeric",
+                    })}
+                  </h3>
+                </div>
+                <div className="text-right">
+                  <p className="text-[11px] text-slate-500 font-semibold">Jam Digital</p>
+                  <p className="font-extrabold text-brand text-xl sm:text-2xl tracking-tight">
+                    {sekarang.toLocaleTimeString("id-ID", {
+                      hour: "2-digit",
+                      minute: "2-digit",
+                      second: "2-digit",
+                      hour12: false,
+                    })}{" "}
+                    <span className="text-xs font-semibold text-slate-400">WIB</span>
+                  </p>
+                </div>
+              </div>
 
-      <div className="bg-white border-t border-mist p-3 shrink-0">
+              {/* IDENTITAS PEGAWAI STRIP */}
+              <div className="bg-slate-50 rounded-2xl p-3.5 border border-mist/70 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-[10px] text-slate-400 font-semibold uppercase tracking-wider">Identitas Pegawai</p>
+                  <p className="font-bold text-navy text-sm truncate">{user?.nama || "Pegawai"}</p>
+                  <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
+                    {user?.nip || "-"} • {user?.jabatan || "-"}
+                  </p>
+                  {user?.sub_unit && (
+                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                      Unit: {user?.sub_unit}
+                    </p>
+                  )}
+                </div>
+                <span className={`px-2.5 py-1.5 rounded-xl text-xs font-bold shrink-0 ${badgeConfig.color}`}>
+                  {badgeConfig.icon} {jenisKehadiran}
+                </span>
+              </div>
 
+              {/* JAM MASUK & JAM KELUAR */}
+              <div className="grid grid-cols-2 gap-3">
+                <div className="bg-paper p-3.5 rounded-2xl border border-mist/70">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-semibold text-slate-500">Jam Masuk</p>
+                    <span className={`w-2.5 h-2.5 rounded-full ${attendance.clockIn ? "bg-teal" : "bg-slate-300"}`} />
+                  </div>
+                  <p className="font-extrabold text-navy text-lg sm:text-xl mt-1">
+                    {attendance.clockIn ? `${attendance.clockIn} WIB` : "--:--"}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                    {attendance.clockIn ? "Tercatat di server" : "Belum absen masuk"}
+                  </p>
+                </div>
+
+                <div className="bg-paper p-3.5 rounded-2xl border border-mist/70">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[11px] font-semibold text-slate-500">Jam Keluar</p>
+                    <span className={`w-2.5 h-2.5 rounded-full ${attendance.clockOut ? "bg-green" : "bg-slate-300"}`} />
+                  </div>
+                  <p className="font-extrabold text-navy text-lg sm:text-xl mt-1">
+                    {attendance.clockOut ? `${attendance.clockOut} WIB` : "--:--"}
+                  </p>
+                  <p className="text-[10px] text-slate-400 mt-0.5 font-medium">
+                    {attendance.clockOut ? "Tercatat di server" : "Belum absen keluar"}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* ALERT MISMATCH */}
+            {isMenuMismatch && (
+              <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex gap-3 items-start shadow-xs">
+                <FiAlertTriangle className="w-5 h-5 text-red-500 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-red-700">Perhatian Perbedaan Jenis Presensi!</h4>
+                  <p className="text-xs text-red-600 mt-1 leading-relaxed">
+                    Tadi Anda melakukan <strong>Absen Masuk</strong> menggunakan kategori <strong>{attendance.attendanceType}</strong>.
+                    Silakan kembali ke Beranda dan pilih menu yang sama untuk melakukan <strong>Absen Keluar</strong>.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            {/* CARD 2: LOKASI & GEOTAG */}
+            {lokasi && (
+              <div className="bg-white rounded-[22px] md:rounded-3xl p-5 border border-mist shadow-xs flex flex-col gap-3">
+                <div className="flex items-center justify-between pb-2.5 border-b border-mist/70">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-xl bg-red-50 text-red-500 flex items-center justify-center shrink-0">
+                      <FiMapPin className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <h4 className="text-xs font-bold text-navy">Lokasi Geotag Saat Ini</h4>
+                      <p className="text-[11px] text-slate-500">Terdeteksi via GPS Perangkat</p>
+                    </div>
+                  </div>
+                  <span className="text-[10px] bg-emerald-50 text-emerald-700 border border-emerald-200 font-bold px-2 py-0.5 rounded-full">
+                    GPS Aktif
+                  </span>
+                </div>
+
+                <div className="text-xs">
+                  <p className="font-semibold text-navy leading-relaxed break-words">{alamat}</p>
+                  <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-500 mt-2 font-mono bg-slate-50 p-2.5 rounded-xl border border-mist/70">
+                    <span>Lat: {lokasi.lat.toFixed(6)}</span>
+                    <span>•</span>
+                    <span>Lng: {lokasi.lng.toFixed(6)}</span>
+                    <span>•</span>
+                    <span className="text-brand font-semibold">Akurasi ±{Math.round(lokasi.accuracy)}m</span>
+                  </div>
+                </div>
+
+                <p className="text-[11px] text-slate-500 leading-relaxed italic">
+                  💡 {badgeConfig.lokasiTip}
+                </p>
+              </div>
+            )}
+
+            {/* PANDUAN INFORMASI KETENTUAN */}
+            <div className="bg-blue-50/70 border border-blue-200/70 rounded-2xl p-4 text-xs text-slate-700 leading-relaxed flex items-start gap-3">
+              <span className="text-base shrink-0">ℹ️</span>
+              <div>
+                <strong className="block text-navy font-bold mb-0.5">Ketentuan Presensi {jenisKehadiran}:</strong>
+                <span>
+                  Pastikan GPS aktif dan posisi Anda sesuai dengan lokasi kerja sebenarnya.
+                  Foto akan langsung diberi watermark waktu (WIB), koordinat GPS, akurasi, dan cuplikan peta satelit.
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* KOLOM KANAN: BUKTI FOTO & TOMBOL AKSI (md:col-span-5) */}
+          <div className="md:col-span-5 flex flex-col gap-4">
+            
+            {/* CARD 3: BUKTI FOTO & TOMBOL AKSI */}
+            <div className="bg-white rounded-[22px] md:rounded-3xl p-5 border border-mist shadow-xs flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between pb-3 border-b border-mist/70 mb-4">
+                  <h3 className="font-bold text-navy text-sm sm:text-base">Bukti Foto Presensi</h3>
+                  {previewFoto ? (
+                    <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full border border-emerald-300">
+                      VERIFIED
+                    </span>
+                  ) : (
+                    <span className="text-[10px] bg-slate-100 text-slate-600 font-semibold px-2 py-0.5 rounded-full">
+                      Belum Ada Foto
+                    </span>
+                  )}
+                </div>
+
+                {/* CONTAINER FOTO / PLACEHOLDER */}
+                {previewFoto ? (
+                  <div className="w-full rounded-2xl overflow-hidden border-2 border-brand/40 shadow-sm bg-black aspect-4/3 flex items-center justify-center">
+                    <img
+                      src={urlFoto(previewFoto)}
+                      alt="Bukti absensi"
+                      className="w-full h-full object-contain block"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full rounded-2xl border-2 border-dashed border-mist bg-slate-50/80 p-6 flex flex-col items-center justify-center text-center aspect-4/3">
+                    <div className="w-14 h-14 rounded-2xl bg-brand/10 text-brand flex items-center justify-center text-2xl mb-3 shadow-2xs">
+                      📷
+                    </div>
+                    <h4 className="font-bold text-navy text-sm">Ambil Foto Presensi</h4>
+                    <p className="text-xs text-slate-500 mt-1 max-w-[240px] leading-relaxed">
+                      Wajah harus terlihat jelas. Foto akan diproses dengan watermark resmi.
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* ACTION BUTTON (DESKTOP INLINE) */}
+              <div className="mt-5 pt-4 border-t border-mist/70 hidden md:block">
+                {!sudahClockOut ? (
+                  <button
+                    onClick={handleAttendance}
+                    disabled={isLoading || isMenuMismatch}
+                    className={`w-full py-3.5 px-4 rounded-2xl font-bold text-white shadow-md hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer text-sm sm:text-base tracking-wide flex items-center justify-center gap-2 ${
+                      isMenuMismatch
+                        ? "bg-slate-400 cursor-not-allowed"
+                        : "bg-brand hover:bg-brand/90 disabled:opacity-60"
+                    }`}
+                  >
+                    {isLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>{loadingText || "Memproses..."}</span>
+                      </>
+                    ) : sudahClockIn ? (
+                      <>
+                        <span>ABSEN KELUAR SEKARANG</span>
+                        <FiLogOut className="w-5 h-5" />
+                      </>
+                    ) : (
+                      <>
+                        <span>ABSEN MASUK SEKARANG</span>
+                        <FiLogIn className="w-5 h-5" />
+                      </>
+                    )}
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => keKinerja && keKinerja(attendance)}
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white py-3.5 px-4 rounded-2xl font-bold shadow-md hover:shadow-lg active:scale-[0.98] transition-all cursor-pointer text-sm sm:text-base flex items-center justify-center gap-2"
+                  >
+                    <span>ISI KINERJA HARIAN</span>
+                    <FiCheckCircle className="w-5 h-5" />
+                  </button>
+                )}
+
+                <p className="text-[11px] text-slate-400 text-center mt-2.5">
+                  🛡️ Foto diproteksi watermark anti-manipulasi geotag & jam server
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </main>
+
+      {/* =====================================================
+          5. MOBILE STICKY BOTTOM ACTION (block md:hidden)
+      ===================================================== */}
+      <div className="block md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-mist p-3.5 z-30 shadow-lg">
         {!sudahClockOut ? (
-
           <button
             onClick={handleAttendance}
-            disabled={
-              isLoading ||
-              isMenuMismatch
-            }
-            className={`w-full text-white py-3.5 rounded-2xl font-bold shadow-lg active:scale-[0.98] transition-all disabled:cursor-not-allowed ${
+            disabled={isLoading || isMenuMismatch}
+            className={`w-full text-white py-3.5 rounded-2xl font-bold shadow-md active:scale-[0.98] transition-all disabled:cursor-not-allowed text-sm ${
               isMenuMismatch
                 ? "bg-navy/40"
                 : "bg-brand disabled:opacity-60"
@@ -1837,83 +1969,79 @@ function Attendance({
               ? "Absen Keluar"
               : "Absen Masuk"}
           </button>
-
         ) : (
-
           <button
-            onClick={() =>
-              keKinerja &&
-              keKinerja(attendance)
-            }
-            className="w-full bg-brand text-white py-3.5 rounded-2xl font-bold shadow-lg active:scale-[0.98] transition-all"
+            onClick={() => keKinerja && keKinerja(attendance)}
+            className="w-full bg-emerald-600 text-white py-3.5 rounded-2xl font-bold shadow-md active:scale-[0.98] transition-all text-sm"
           >
             Isi Kinerja Harian
           </button>
-
         )}
-
       </div>
 
-      {/* KAMERA */}
-
+      {/* =====================================================
+          6. KAMERA MODAL OVERLAY (RESPONSIF DESKTOP & MOBILE)
+      ===================================================== */}
       {kameraAktif && (
-        <div className="absolute inset-0 z-40 bg-black flex flex-col">
-
-          <div className="flex items-center justify-between px-5 pt-8 pb-3 text-white shrink-0">
-
-            <span className="text-sm font-bold">
-              {isClockOut ? "Foto Absen Keluar" : "Foto Absen Masuk"}
-            </span>
-
-            <button
-              onClick={tutupKamera}
-              className="text-2xl leading-none px-2"
-            >
-              ✕
-            </button>
-
-          </div>
-
-          <div className="flex-1 min-h-0 relative">
-
-            <video
-              ref={videoRef}
-              playsInline
-              muted
-              autoPlay
-              className="w-full h-full object-contain"
-            />
-
-            {!kameraSiap && (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-white text-sm">
-                  Menyiapkan kamera...
-                </p>
+        <div className="fixed inset-0 z-50 bg-navy/80 backdrop-blur-sm flex items-center justify-center p-0 md:p-6 animate-in fade-in duration-200">
+          <div className="w-full h-full md:h-auto md:max-w-xl bg-black md:rounded-3xl overflow-hidden shadow-2xl flex flex-col md:border md:border-white/10">
+            {/* CAMERA HEADER */}
+            <div className="flex items-center justify-between px-5 pt-6 md:pt-4 pb-3 text-white shrink-0 bg-slate-900/80">
+              <div className="flex items-center gap-2">
+                <span className="text-base">📷</span>
+                <span className="text-sm font-bold">
+                  {isClockOut ? "Foto Absen Keluar" : "Foto Absen Masuk"} ({jenisKehadiran})
+                </span>
               </div>
-            )}
+              <button
+                onClick={tutupKamera}
+                className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center text-lg leading-none cursor-pointer"
+                title="Tutup Kamera"
+              >
+                ✕
+              </button>
+            </div>
 
+            {/* VIDEO FEED */}
+            <div className="flex-1 min-h-[300px] md:min-h-[380px] max-h-[70vh] relative bg-black flex items-center justify-center">
+              <video
+                ref={videoRef}
+                playsInline
+                muted
+                autoPlay
+                className="w-full h-full object-contain"
+              />
+
+              {!kameraSiap && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                  <div className="text-center text-white">
+                    <div className="w-8 h-8 border-2 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                    <p className="text-xs">Menyiapkan kamera...</p>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* CAMERA BOTTOM CONTROLS */}
+            <div className="px-5 pt-3 pb-8 md:pb-5 shrink-0 flex flex-col items-center gap-2.5 bg-slate-900/90 text-white">
+              <p className="text-slate-400 text-[11px] text-center">
+                Posisikan wajah di dalam frame. Foto akan dibubuhi watermark waktu, lokasi, dan peta.
+              </p>
+
+              <button
+                onClick={ambilJepretan}
+                disabled={!kameraSiap}
+                className="w-16 h-16 rounded-full bg-white border-4 border-brand hover:scale-105 active:scale-95 transition-all disabled:opacity-40 cursor-pointer shadow-lg flex items-center justify-center"
+                aria-label="Ambil foto"
+              >
+                <div className="w-12 h-12 rounded-full border-2 border-slate-300" />
+              </button>
+            </div>
           </div>
-
-          <div className="px-5 pt-4 pb-8 shrink-0 flex flex-col items-center gap-3">
-
-            <p className="text-mist text-[11px] text-center">
-              Foto diambil langsung dari kamera dan diberi watermark waktu serta lokasi.
-            </p>
-
-            <button
-              onClick={ambilJepretan}
-              disabled={!kameraSiap}
-              className="w-16 h-16 rounded-full bg-white border-4 border-brand active:scale-95 transition-all disabled:opacity-40"
-              aria-label="Ambil foto"
-            />
-
-          </div>
-
         </div>
       )}
 
-      {/* CAMERA */}
-
+      {/* CAMERA FILE FALLBACK */}
       <input
         ref={inputKameraRef}
         type="file"
@@ -1922,7 +2050,6 @@ function Attendance({
         onChange={handleFotoDiambil}
         className="hidden"
       />
-
     </div>
   );
 }

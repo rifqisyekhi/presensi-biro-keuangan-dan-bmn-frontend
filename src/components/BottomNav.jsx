@@ -1,4 +1,6 @@
 
+import { FiCheckCircle, FiClock, FiUser } from "react-icons/fi";
+
 // =========================================================
 // BOTTOM BAR CATEGORIES:
 // 1. Primary + Greyish White (Default)
@@ -41,10 +43,7 @@ function BottomNav({ activeNav, keHome, keRiwayat, keProfile, category = "1" }) 
           onClick={keHome}
           className="flex flex-col items-center gap-1 cursor-pointer transition-transform active:scale-90"
         >
-          <svg className={`w-6 h-6 transition-colors ${activeNav === "attendance" ? activeColor : inactiveColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 3a9 9 0 100 18 9 9 0 000-18z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12l2.5 2.5L16 9" />
-          </svg>
+          <FiCheckCircle className={`w-6 h-6 transition-colors ${activeNav === "attendance" ? activeColor : inactiveColor}`} />
           {activeNav === "attendance" ? (
             <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
           ) : (
@@ -57,11 +56,7 @@ function BottomNav({ activeNav, keHome, keRiwayat, keProfile, category = "1" }) 
           onClick={keRiwayat}
           className="flex flex-col items-center gap-1 cursor-pointer transition-transform active:scale-90"
         >
-          <svg className={`w-6 h-6 transition-colors ${activeNav === "history" ? activeColor : inactiveColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 2" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.93 4.93A10 10 0 1012 2" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v4h4" />
-          </svg>
+          <FiClock className={`w-6 h-6 transition-colors ${activeNav === "history" ? activeColor : inactiveColor}`} />
           {activeNav === "history" ? (
             <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
           ) : (
@@ -74,10 +69,7 @@ function BottomNav({ activeNav, keHome, keRiwayat, keProfile, category = "1" }) 
           onClick={keProfile}
           className="flex flex-col items-center gap-1 cursor-pointer transition-transform active:scale-90"
         >
-          <svg className={`w-6 h-6 transition-colors ${activeNav === "profile" ? activeColor : inactiveColor}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.8}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M20 21a8 8 0 00-16 0" />
-            <circle cx="12" cy="7" r="4" />
-          </svg>
+          <FiUser className={`w-6 h-6 transition-colors ${activeNav === "profile" ? activeColor : inactiveColor}`} />
           {activeNav === "profile" ? (
             <span className={`w-1.5 h-1.5 rounded-full ${dotColor}`} />
           ) : (

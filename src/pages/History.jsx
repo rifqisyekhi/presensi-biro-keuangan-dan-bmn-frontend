@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { FiFilter, FiChevronRight } from "react-icons/fi";
 import BottomNav from "../components/BottomNav";
 import logoKemnaker from "../assets/logo-kemnaker.png";
 import { API_URL, urlFoto } from "../config";
@@ -23,6 +24,9 @@ const PILIHAN_JENIS = [
   { nilai: "WFO", label: "WFO" },
   { nilai: "WFH", label: "WFH" },
   { nilai: "DINAS", label: "Dinas Luar" },
+  { nilai: "CUTI", label: "Cuti" },
+  { nilai: "IZIN", label: "Izin" },
+  { nilai: "ALPHA", label: "Alpha" },
 ];
 
 // Bulan berjalan menurut perangkat pegawai.
@@ -203,6 +207,12 @@ function History({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
         return "WFH";
       case "DINAS":
         return "Dinas Luar";
+      case "CUTI":
+        return "Cuti";
+      case "IZIN":
+        return "Izin";
+      case "ALPHA":
+        return "Alpha";
       default:
         return type || "-";
     }
@@ -216,12 +226,35 @@ function History({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
         return "bg-orange-light/20 text-[#a06800] border border-orange-light/40";
       case "DINAS":
         return "bg-green/20 text-[#527926] border border-green/40";
+      case "CUTI":
+      case "IZIN":
+        return "bg-yellow/25 text-[#856404] border border-yellow/50";
+      case "ALPHA":
+        return "bg-red-50 text-red-600 border border-red-200";
       default:
         return "bg-brand/10 text-brand border border-brand/20";
     }
   };
 
   const getStatus = (item) => {
+    if (item.attendanceType === "ALPHA") {
+      return {
+        text: "Alpha",
+        color: "text-red-600",
+        bg: "bg-red-50",
+        border: "border-red-200",
+      };
+    }
+
+    if (item.attendanceType === "CUTI" || item.attendanceType === "IZIN") {
+      return {
+        text: item.attendanceType === "CUTI" ? "Cuti" : "Izin",
+        color: "text-[#856404]",
+        bg: "bg-yellow/25",
+        border: "border-yellow/50",
+      };
+    }
+
     if (item.clockOut) {
       return {
         text: "Selesai",
@@ -429,20 +462,7 @@ function History({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
                 : "border-mist bg-white text-navy hover:bg-slate-50"
             }`}
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-3.5 w-3.5"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-              />
-            </svg>
+            <FiFilter className="h-3.5 w-3.5" />
             <span>Filter</span>
             {filterAktif && (
               <span className="w-1.5 h-1.5 rounded-full bg-white ml-0.5" />
@@ -624,20 +644,7 @@ function History({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
 
                         {/* ARROW ICON */}
                         <div className="text-slate-400 shrink-0 hidden sm:block">
-                          <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            className="h-4 w-4"
-                            fill="none"
-                            viewBox="0 0 24 24"
-                            stroke="currentColor"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M9 5l7 7-7 7"
-                            />
-                          </svg>
+                          <FiChevronRight className="h-4 w-4" />
                         </div>
                       </button>
                     );
