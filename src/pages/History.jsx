@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { FiFilter, FiChevronRight } from "react-icons/fi";
 import BottomNav from "../components/BottomNav";
+import PortalTuMenu from "../components/PortalTuMenu";
 import logoKemnaker from "../assets/logo-kemnaker.png";
 import { API_URL, urlFoto } from "../config";
 
@@ -423,13 +424,16 @@ function History({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
               Profil Saya
             </button>
             {petugas && (
-              <button
-                onClick={keRekap}
-                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
-              >
-                <span>Rekap Absensi</span>
-                <span className="bg-brand/10 text-brand text-[10px] font-bold px-1.5 py-0.2 rounded-sm uppercase">Petugas</span>
-              </button>
+              <>
+                <button
+                  onClick={keRekap}
+                  className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Rekap Absensi</span>
+                  <span className="bg-brand/10 text-brand text-[10px] font-bold px-1.5 py-0.2 rounded-sm uppercase">Petugas</span>
+                </button>
+                <PortalTuMenu />
+              </>
             )}
             <div className="w-px h-5 bg-mist mx-1" />
             <button

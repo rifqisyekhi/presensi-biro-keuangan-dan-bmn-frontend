@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { FiFileText, FiLogOut } from "react-icons/fi";
 import BottomNav from "../components/BottomNav.jsx";
+import PortalTuMenu from "../components/PortalTuMenu";
 import logoKemnaker from "../assets/logo-kemnaker.png";
 import { API_URL, NOMOR_BOT_SISKA, FORM_CUTI_URL } from "../config";
 
@@ -183,13 +184,16 @@ function Profile({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
               Profil Saya
             </button>
             {petugas && (
-              <button
-                onClick={keRekap}
-                className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
-              >
-                <span>Rekap Absensi</span>
-                <span className="bg-brand/10 text-brand text-[10px] font-bold px-1.5 py-0.2 rounded-sm uppercase">Petugas</span>
-              </button>
+              <>
+                <button
+                  onClick={keRekap}
+                  className="px-3.5 py-2 rounded-xl text-slate-600 hover:text-brand hover:bg-slate-100 transition-all cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Rekap Absensi</span>
+                  <span className="bg-brand/10 text-brand text-[10px] font-bold px-1.5 py-0.2 rounded-sm uppercase">Petugas</span>
+                </button>
+                <PortalTuMenu />
+              </>
             )}
             <div className="w-px h-5 bg-mist mx-1" />
             <button
@@ -295,13 +299,18 @@ function Profile({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
           <div className="order-4 md:order-3 md:col-span-5 lg:col-span-4 h-full">
             <div className="bg-white rounded-[24px] md:rounded-3xl p-5 sm:p-6 border border-mist shadow-xs flex flex-col justify-center gap-2.5 h-full">
               {petugas && (
-                <button
-                  onClick={keRekap}
-                  className="w-full bg-brand hover:bg-brand/90 text-white py-3 px-4 rounded-xl font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  <FiFileText className="w-4 h-4" />
-                  <span>Rekap Absensi Pegawai</span>
-                </button>
+                <>
+                  <button
+                    onClick={keRekap}
+                    className="w-full bg-brand hover:bg-brand/90 text-white py-3 px-4 rounded-xl font-bold text-xs sm:text-sm shadow-xs transition-all active:scale-[0.98] flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <FiFileText className="w-4 h-4" />
+                    <span>Rekap Absensi Pegawai</span>
+                  </button>
+                  <div className="w-full flex justify-center py-1">
+                    <PortalTuMenu />
+                  </div>
+                </>
               )}
 
               <button

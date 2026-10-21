@@ -22,8 +22,10 @@ import {
   FileSpreadsheet,
   AlertTriangle,
 } from "lucide-react";
+import { FiFileText, FiDownload, FiEye } from "react-icons/fi";
 import { useAlert } from "../context/AlertContext";
 import { API_URL, urlFoto } from "../config";
+import PortalTuMenu from "../components/PortalTuMenu";
 
 // =========================================================
 // REKAP ABSENSI — HALAMAN PETUGAS (RESPONSIF TABLE & MODAL)
@@ -129,6 +131,30 @@ function Rekap({ keProfile }) {
 
   const [modalHapus, setModalHapus] = useState(null);
   const [sedangHapus, setSedangHapus] = useState(false);
+
+
+  // Modal Bukti Cuti WhatsApp SisKA
+  const [modalDaftarCuti, setModalDaftarCuti] = useState(false);
+  const [daftarCuti, setDaftarCuti] = useState([]);
+  const [memuatCuti, setMemuatCuti] = useState(false);
+
+  const bukaModalDaftarCuti = async () => {
+    setModalDaftarCuti(true);
+    setMemuatCuti(true);
+    try {
+      const res = await fetch(`${API_URL}/api/rekap/cuti?pemohon=${encodeURIComponent(noWa)}`);
+      const hasil = await res.json();
+      if (res.ok && Array.isArray(hasil.data)) {
+        setDaftarCuti(hasil.data);
+      } else {
+        showAlert({ title: "Gagal", message: hasil.message || "Gagal memuat daftar cuti.", type: "error" });
+      }
+    } catch (err) {
+      showAlert({ title: "Error", message: "Gagal memuat daftar cuti: " + err.message, type: "error" });
+    } finally {
+      setMemuatCuti(false);
+    }
+  };
 
   const noWa = (() => {
     try {
@@ -485,6 +511,20 @@ function Rekap({ keProfile }) {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
+            {/* MENU PORTAL LAYANAN TU / SISKA */}
+            <PortalTuMenu />
+
+            <button
+              type="button"
+              onClick={bukaModalDaftarCuti}
+              className="inline-flex items-center gap-1.5 sm:gap-2 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all active:scale-95 cursor-pointer"
+              title="Daftar Formulir Cuti Pegawai yang disetujui lewat WhatsApp SisKA"
+            >
+              <FiFileText className="w-4 h-4 shrink-0 text-amber-700" />
+              <span className="hidden sm:inline">Rekap Cuti</span>
+              <span className="inline sm:hidden">Cuti</span>
+            </button>
+
             <a
               href={urlExport}
               className="inline-flex items-center gap-1.5 sm:gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-2.5 sm:px-3.5 py-1.5 sm:py-2 rounded-xl text-xs font-bold shadow-xs hover:shadow-sm transition-all active:scale-95 cursor-pointer"
@@ -964,6 +1004,18 @@ function Rekap({ keProfile }) {
                         {/* AKSI */}
                         <td className="py-3.5 px-4 text-center">
                           <div className="flex items-center justify-center gap-1.5">
+                            {baris.cutiInfo?.hasPdf && (
+                              <a
+                                href={`${API_URL}${baris.cutiInfo.pdfUrl}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="p-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 hover:border-amber-400 transition-all cursor-pointer"
+                                title="Lihat Formulir Cuti Resmi (PDF)"
+                              >
+                                <FiFileText className="w-3.5 h-3.5 text-amber-700" />
+                              </a>
+                            )}
+
                             <button
                               type="button"
                               onClick={() => bukaModalJam(baris)}
@@ -1160,6 +1212,17 @@ function Rekap({ keProfile }) {
                     </div>
 
                     <div className="flex items-center gap-1">
+                      {baris.cutiInfo?.hasPdf && (
+                        <a
+                          href={`${API_URL}${baris.cutiInfo.pdfUrl}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1.5 rounded-lg border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 cursor-pointer"
+                          title="Lihat Formulir Cuti Resmi (PDF)"
+                        >
+                          <FiFileText className="w-3.5 h-3.5 text-amber-700" />
+                        </a>
+                      )}
                       <button
                         type="button"
                         onClick={() => bukaModalJam(baris)}
@@ -1242,6 +1305,145 @@ function Rekap({ keProfile }) {
           </div>
         )}
       </main>
+
+      {/* =====================================================
+          MODAL: DAFTAR BUKTI CUTI (WHATSAPP SISKA)
+      ===================================================== */}
+      {modalDaftarCuti && (
+        <div className="fixed inset-0 z-50 bg-navy/60 backdrop-blur-xs flex items-center justify-center p-3 sm:p-4 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl max-w-4xl w-full max-h-[90vh] flex flex-col overflow-hidden shadow-2xl border border-mist animate-in zoom-in-95 duration-200">
+            {/* Header Modal */}
+            <div className="p-4 sm:p-5 border-b border-mist flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                  <FiFileText className="w-5 h-5 text-amber-700" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-base sm:text-lg text-navy">
+                    Bukti Permohonan Cuti (WhatsApp SisKA)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    Formulir resmi pegawai yang disetujui lewat bot WhatsApp
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setModalDaftarCuti(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200/60 transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Isi Modal */}
+            <div className="p-4 sm:p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+              {memuatCuti ? (
+                <div className="py-12 text-center text-slate-400 flex flex-col items-center justify-center gap-2">
+                  <RefreshCw className="w-6 h-6 animate-spin text-amber-600" />
+                  <p className="text-xs font-medium">Memuat data berkas cuti...</p>
+                </div>
+              ) : daftarCuti.length === 0 ? (
+                <div className="py-12 text-center text-slate-400">
+                  <FiFileText className="w-10 h-10 mx-auto mb-2 text-slate-300" />
+                  <p className="font-medium text-sm text-slate-600">Belum Ada Pengajuan Cuti</p>
+                  <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">
+                    Saat pegawai mengajukan cuti dan disetujui atasan di WhatsApp SisKA, berkas formulir PDF resmi akan otomatis tercatat dan dapat diunduh di sini.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto border border-mist rounded-2xl shadow-2xs">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="bg-slate-50/80 border-b border-mist text-slate-600 font-bold uppercase text-[10px] tracking-wider">
+                        <th className="py-3 px-3.5">Pegawai</th>
+                        <th className="py-3 px-3.5">Jenis & Alasan Cuti</th>
+                        <th className="py-3 px-3.5">Durasi</th>
+                        <th className="py-3 px-3.5">Atasan Penyetuju</th>
+                        <th className="py-3 px-3.5">Tanggal Dibuat</th>
+                        <th className="py-3 px-3.5 text-center">Berkas Formulir</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-mist">
+                      {daftarCuti.map((item) => (
+                        <tr key={item.id} className="hover:bg-amber-50/30 transition-colors">
+                          <td className="py-3 px-3.5">
+                            <div className="font-bold text-slate-800">{item.nama}</div>
+                            <div className="text-[11px] text-slate-400 font-mono">NIP: {item.nip || "-"}</div>
+                            <div className="text-[10px] text-slate-500">{item.sub_unit}</div>
+                          </td>
+                          <td className="py-3 px-3.5">
+                            <span className="inline-block px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                              {item.jenis_cuti}
+                            </span>
+                            <div className="text-slate-600 mt-1 italic text-[11px]">"{item.alasan || "-"}"</div>
+                          </td>
+                          <td className="py-3 px-3.5 font-semibold text-slate-700">
+                            {item.lama_cuti || "-"}
+                          </td>
+                          <td className="py-3 px-3.5 text-slate-600">
+                            {item.atasan || "-"}
+                          </td>
+                          <td className="py-3 px-3.5 text-slate-500 whitespace-nowrap">
+                            {item.createdAt
+                              ? new Date(item.createdAt).toLocaleDateString("id-ID", {
+                                  day: "2-digit",
+                                  month: "short",
+                                  year: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                })
+                              : "-"}
+                          </td>
+                          <td className="py-3 px-3.5 text-center">
+                            {item.hasPdf ? (
+                              <div className="flex items-center justify-center gap-1.5">
+                                <a
+                                  href={`${API_URL}${item.pdfUrl}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-300 hover:bg-amber-100 transition-colors font-bold text-[11px] cursor-pointer shadow-2xs"
+                                  title="Buka / Pratinjau PDF di Tab Baru"
+                                >
+                                  <FiEye className="w-3.5 h-3.5 text-amber-700" />
+                                  <span>Lihat</span>
+                                </a>
+                                <a
+                                  href={`${API_URL}${item.pdfUrl}?download=true`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-300 transition-colors cursor-pointer"
+                                  title="Unduh Berkas PDF Resmi"
+                                >
+                                  <FiDownload className="w-3.5 h-3.5 text-slate-600" />
+                                </a>
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-slate-400 italic">Berkas belum ada</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+
+            {/* Footer Modal */}
+            <div className="p-4 border-t border-mist bg-slate-50 flex items-center justify-between text-xs text-slate-500">
+              <span>Total Formulir: <strong>{daftarCuti.length}</strong></span>
+              <button
+                type="button"
+                onClick={() => setModalDaftarCuti(false)}
+                className="px-4 py-2 bg-white border border-mist hover:bg-slate-100 text-slate-700 rounded-xl font-semibold cursor-pointer"
+              >
+                Tutup
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* =====================================================
           MODAL: PRATINJAU FOTO GEOTAG

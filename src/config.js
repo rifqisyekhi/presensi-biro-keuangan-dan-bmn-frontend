@@ -41,3 +41,28 @@ export function urlFoto(value) {
 
   return `${API_URL}${value.startsWith("/") ? "" : "/"}${value}`;
 }
+
+// =========================================================
+// URL DASHBOARD LAIN (SISKA WEB)
+// =========================================================
+
+// SisKA Web menyajikan:
+// - /admin  : Admin Panel Master Data (Pegawai & Kendaraan)
+// - /barang : Dashboard Persediaan Barang & Stok ATK
+// - /       : Katalog Pengambilan Barang
+export function getUrlSiska(path = "") {
+  const p = path.startsWith("/") ? path : `/${path}`;
+  if (import.meta.env.VITE_SISKA_WEB_URL) {
+    return `${import.meta.env.VITE_SISKA_WEB_URL.replace(/\/$/, "")}${p}`;
+  }
+  const hostname = window.location.hostname;
+  const protocol = window.location.protocol;
+  // Jika dibuka di host server selain localhost
+  if (hostname && hostname !== "localhost" && hostname !== "127.0.0.1") {
+    return `${protocol}//${hostname}:8002${p}`;
+  }
+  // Saat dibuka di lokal laptop: langsung hubungkan ke server SisKA
+  return `http://192.168.221.44:8002${p}`;
+}
+
+
