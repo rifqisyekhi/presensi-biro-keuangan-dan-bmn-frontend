@@ -26,7 +26,6 @@ const PILIHAN_JENIS = [
   { nilai: "WFH", label: "WFH" },
   { nilai: "DINAS", label: "Dinas Luar" },
   { nilai: "CUTI", label: "Cuti" },
-  { nilai: "IZIN", label: "Izin" },
   { nilai: "ALPHA", label: "Alpha" },
 ];
 
@@ -210,8 +209,7 @@ function History({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
         return "Dinas Luar";
       case "CUTI":
         return "Cuti";
-      case "IZIN":
-        return "Izin";
+
       case "ALPHA":
         return "Alpha";
       default:
@@ -228,7 +226,6 @@ function History({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
       case "DINAS":
         return "bg-green/20 text-[#527926] border border-green/40";
       case "CUTI":
-      case "IZIN":
         return "bg-yellow/25 text-[#856404] border border-yellow/50";
       case "ALPHA":
         return "bg-red-50 text-red-600 border border-red-200";
@@ -247,9 +244,9 @@ function History({ keHome, keRiwayat, keProfile, keRekap, keLogout }) {
       };
     }
 
-    if (item.attendanceType === "CUTI" || item.attendanceType === "IZIN") {
+    if (item.attendanceType === "CUTI") {
       return {
-        text: item.attendanceType === "CUTI" ? "Cuti" : "Izin",
+        text: "Cuti",
         color: "text-[#856404]",
         bg: "bg-yellow/25",
         border: "border-yellow/50",

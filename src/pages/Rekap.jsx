@@ -36,7 +36,6 @@ const JENIS_KEHADIRAN = [
   { nilai: "WFH", label: "WFH" },
   { nilai: "DINAS", label: "Dinas Luar" },
   { nilai: "CUTI", label: "Cuti" },
-  { nilai: "IZIN", label: "Izin" },
   { nilai: "ALPHA", label: "Alpha" },
 ];
 
@@ -49,7 +48,6 @@ function getStatusBadgeClass(attendanceType) {
     case "DINAS":
       return "bg-green/25 text-navy border border-green/30";
     case "CUTI":
-    case "IZIN":
       return "bg-amber-100 text-amber-800 border border-amber-300";
     case "ALPHA":
       return "bg-red-100 text-red-700 border border-red-300";
@@ -270,7 +268,7 @@ function Rekap({ keProfile }) {
     const wfh = data.data.filter((d) => d.attendanceType === "WFH").length;
     const dinas = data.data.filter((d) => d.attendanceType === "DINAS").length;
     const cuti = data.data.filter(
-      (d) => d.attendanceType === "CUTI" || d.attendanceType === "IZIN"
+      (d) => d.attendanceType === "CUTI"
     ).length;
     const alpha = data.data.filter((d) => d.attendanceType === "ALPHA").length;
     const belumPulang = data.data.filter(
@@ -602,9 +600,9 @@ function Rekap({ keProfile }) {
                 <Calendar className="w-5 h-5" />
               </div>
               <div className="min-w-0">
-                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Cuti / Izin</p>
+                <p className="text-[11px] sm:text-xs text-slate-500 font-medium truncate">Cuti</p>
                 <h3 className="text-xl sm:text-2xl font-bold text-amber-700">{ringkasan.cuti}</h3>
-                <p className="text-[10px] text-amber-600 font-medium mt-0.5 truncate">Izin resmi</p>
+                <p className="text-[10px] text-amber-600 font-medium mt-0.5 truncate">Cuti resmi</p>
               </div>
             </div>
 
@@ -739,7 +737,6 @@ function Rekap({ keProfile }) {
                 <option value="WFH">WFH</option>
                 <option value="DINAS">Dinas Luar</option>
                 <option value="CUTI">Cuti</option>
-                <option value="IZIN">Izin</option>
                 <option value="ALPHA">Alpha (Tidak Hadir)</option>
               </select>
             </div>
@@ -849,8 +846,7 @@ function Rekap({ keProfile }) {
                     const noUrut = (page - 1) * perPage + idx + 1;
                     const isAlpha = baris.attendanceType === "ALPHA";
                     const isCuti =
-                      baris.attendanceType === "CUTI" ||
-                      baris.attendanceType === "IZIN";
+                      baris.attendanceType === "CUTI";
                     const isBelumPulang =
                       (baris.attendanceType === "WFO" ||
                         baris.attendanceType === "WFH") &&
@@ -943,7 +939,7 @@ function Rekap({ keProfile }) {
                           ) : isAlpha ? (
                             <span className="text-red-400 italic text-[11px]">Tidak ada presensi (Alpha)</span>
                           ) : isCuti ? (
-                            <span className="text-amber-700 italic text-[11px]">{baris.jenis || "Cuti / Izin"}</span>
+                            <span className="text-amber-700 italic text-[11px]">{baris.jenis || "Cuti"}</span>
                           ) : (
                             <span className="text-slate-300 italic text-[11px]">Tidak ada catatan kinerja</span>
                           )}
@@ -1084,8 +1080,7 @@ function Rekap({ keProfile }) {
             pagedData.map((baris, idx) => {
               const isAlpha = baris.attendanceType === "ALPHA";
               const isCuti =
-                baris.attendanceType === "CUTI" ||
-                baris.attendanceType === "IZIN";
+                baris.attendanceType === "CUTI";
               const isBelumPulang =
                 (baris.attendanceType === "WFO" ||
                   baris.attendanceType === "WFH") &&
@@ -1165,7 +1160,7 @@ function Rekap({ keProfile }) {
                     </div>
                   ) : isCuti ? (
                     <div className="mb-3 text-xs bg-amber-50/50 p-2.5 rounded-xl border border-amber-100">
-                      <p className="text-amber-700 italic text-[11px]">{baris.jenis || "Cuti / Izin"}</p>
+                      <p className="text-amber-700 italic text-[11px]">{baris.jenis || "Cuti"}</p>
                     </div>
                   ) : null}
 
@@ -1683,9 +1678,9 @@ function Rekap({ keProfile }) {
                 </div>
               )}
 
-              {(statusBaru === "CUTI" || statusBaru === "IZIN") && (
+              {statusBaru === "CUTI" && (
                 <div className="bg-amber-50 border border-amber-200/80 p-3 rounded-xl text-[11px] text-amber-800 leading-relaxed">
-                  <strong>Catatan Cuti/Izin:</strong> Pegawai tercatat izin resmi / cuti dan tidak dikenai denda keterlambatan di rekap.
+                  <strong>Catatan Cuti:</strong> Pegawai tercatat cuti resmi dan tidak dikenai denda keterlambatan di rekap.
                 </div>
               )}
             </div>
