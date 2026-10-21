@@ -401,9 +401,31 @@ function Rekap({ keProfile }) {
 
       setPesan(hasil.message || "Status kehadiran berhasil diubah.");
       setModalStatus(null);
+
+      // Popup, bukan hanya setPesan.
+      //
+      // Modalnya menutup sendiri begitu berhasil, dan banner pesan
+      // di atas tabel bisa berada di luar layar kalau petugas
+      // sedang menggulir ke bawah — jadi tanpa popup, perubahan
+      // yang berhasil tidak terasa berbeda dari yang gagal diam.
+      // Alur hapus sudah memakai pola ini; ubah status menyusul.
+      showAlert({
+        title: "Status Diubah",
+        message: hasil.message || "Status kehadiran berhasil diubah.",
+        type: "success",
+      });
     } catch (err) {
       console.error("Error ubah status:", err);
       setError(err.message);
+
+      // Pesan dari backend diteruskan apa adanya — ia sudah
+      // menjelaskan sebabnya, misalnya kenapa Alpha tidak bisa
+      // dipilih atau kenapa statusnya sudah sama.
+      showAlert({
+        title: "Gagal Mengubah Status",
+        message: err.message || "Terjadi kesalahan saat mengubah status.",
+        type: "error",
+      });
     } finally {
       setSedangSimpanStatus(false);
     }
@@ -469,9 +491,21 @@ function Rekap({ keProfile }) {
 
       setPesan(hasil.message || "Jam absensi berhasil diubah.");
       setModalJam(null);
+
+      showAlert({
+        title: "Jam Diubah",
+        message: hasil.message || "Jam absensi berhasil diubah.",
+        type: "success",
+      });
     } catch (err) {
       console.error("Error ubah jam:", err);
       setError(err.message);
+
+      showAlert({
+        title: "Gagal Mengubah Jam",
+        message: err.message || "Terjadi kesalahan saat mengubah jam.",
+        type: "error",
+      });
     } finally {
       setSedangSimpanJam(false);
     }
